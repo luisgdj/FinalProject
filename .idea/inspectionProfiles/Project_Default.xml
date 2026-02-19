@@ -1,0 +1,33 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="transformers" />
+          <option value="torch" />
+          <option value="flask" />
+          <option value="flask-cors" />
+          <option value="fastapi" />
+          <option value="uvicorn" />
+          <option value="pydantic" />
+          <option value="pydantic-settings" />
+          <option value="python-dotenv" />
+          <option value="httpx" />
+          <option value="python-multipart" />
+          <option value="accelerate" />
+          <option value="sentencepiece" />
+          <option value="rdkit" />
+          <option value="loguru" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="INFORMATION" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="W605" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
