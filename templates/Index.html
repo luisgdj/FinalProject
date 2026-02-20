@@ -12,14 +12,14 @@
         }
 
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #AFE4BA;
             min-height: 100vh;
             padding: 20px;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1500px;
             margin: 0 auto;
         }
 
@@ -32,7 +32,7 @@
         }
 
         .header h1 {
-            color: #667eea;
+            color: #333;
             font-size: 2.5em;
             margin-bottom: 10px;
         }
@@ -59,7 +59,7 @@
             color: #333;
             margin-bottom: 20px;
             font-size: 1.5em;
-            border-bottom: 3px solid #667eea;
+            border-bottom: 3px solid #3B5C3F;
             padding-bottom: 10px;
         }
 
@@ -70,7 +70,7 @@
         label {
             display: block;
             font-weight: 600;
-            color: #555;
+            color: #444;
             margin-bottom: 8px;
             font-size: 0.95em;
         }
@@ -89,14 +89,14 @@
         input:focus,
         select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #3B5C3F;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         .btn {
             width: 100%;
             padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #3B5C3F;
             color: white;
             border: none;
             border-radius: 8px;
@@ -137,7 +137,7 @@
         }
 
         .result-main {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #3B5C3F;
             color: white;
             padding: 25px;
             border-radius: 12px;
@@ -170,7 +170,7 @@
         }
 
         .result-details h4 {
-            color: #667eea;
+            color: #3B5C3F;
             margin-bottom: 15px;
             font-size: 1.1em;
         }
@@ -192,7 +192,7 @@
         }
 
         .detail-value {
-            color: #333;
+            color: #444;
             font-weight: 600;
         }
 
@@ -228,7 +228,7 @@
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 10px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #3B5C3F;
         }
 
         .compound-item code {
@@ -251,7 +251,7 @@
 
         .spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border-top: 4px solid #3B5C3F;
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -280,14 +280,14 @@
 
         .info-box {
             background: #e7f3ff;
-            border-left: 4px solid #2196F3;
+            border-left: 4px solid #3B5C3F;
             padding: 15px;
             border-radius: 8px;
             margin-top: 20px;
         }
 
         .info-box h4 {
-            color: #1976D2;
+            color: #333;
             margin-bottom: 10px;
         }
 
@@ -301,7 +301,7 @@
         }
 
         .example-link {
-            color: #667eea;
+            color: #3B5C3F;
             text-decoration: none;
             font-weight: 500;
             cursor: pointer;
@@ -322,14 +322,14 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>🧬 CCS Predictor</h1>
+            <h1>CCS Predictor</h1>
             <p>Collision Cross Section prediction using DeepSeek AI and chemical similarity</p>
         </div>
 
         <div class="main-content">
             <!-- Input Form -->
             <div class="card">
-                <h2>📝 Input Parameters</h2>
+                <h2>Input Parameters</h2>
 
                 <div class="error" id="errorMessage"></div>
 
@@ -374,25 +374,25 @@
                     </div>
 
                     <button type="submit" class="btn" id="predictBtn">
-                        🔮 Predict CCS
+                        Predict CCS
                     </button>
                 </form>
 
                 <div class="info-box">
                     <h4>How the model works</h4>
                     <ul>
-                        <li>The model analyzes molecular structure from SMILES</li>
+                        <li>Analyzes molecular structure from SMILES</li>
                         <li>Takes into account its m/z and adduct type</li>
                         <li>Finds similar compounds in the training dataset</li>
                         <li>Uses AI to predict CCS based on chemical features</li>
-                        <li>Dataset contains 5,544 experimental measurements</li>
+                        <li>Dataset contains 49,483 experimental measurements</li>
                     </ul>
                 </div>
             </div>
 
             <!-- Results -->
             <div class="card">
-                <h2>📊 Prediction Results</h2>
+                <h2>Prediction Results</h2>
 
                 <div class="loading" id="loading">
                     <div class="spinner"></div>
@@ -433,7 +433,7 @@
                     </div>
 
                     <div class="similar-compounds" id="similarCompounds" style="display: none;">
-                        <h4 style="color: #667eea; margin-bottom: 15px;">Similar Compounds from Database</h4>
+                        <h4 style="color: #3B5C3F; margin-bottom: 15px;">Similar Compounds from Database</h4>
                         <div id="compoundsList"></div>
                     </div>
                 </div>
