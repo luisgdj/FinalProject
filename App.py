@@ -1,29 +1,17 @@
-"""
-Aplicación web Flask para predicción de CCS
-Interfaz científica integrada con el modelo DeepSeek
-"""
-
 from flask import Flask, render_template, request, jsonify
 import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import json
 import re
-from collections import defaultdict
 import csv
 
 app = Flask(__name__)
 
-# Variables globales para mantener el modelo cargado
 MODEL = None
 TOKENIZER = None
 DATOS_TRAIN = None
 STATS = None
-
-
-# ============================================================
-# FUNCIONES DEL PREDICTOR (copiadas de tu código)
-# ============================================================
 
 def extraer_caracteristicas(smiles):
     return {
@@ -217,7 +205,6 @@ def predecir_ccs(model, tokenizer, prompt, mz_fallback, stats, max_new_tokens=15
 
 
 def cargar_modelo():
-    print("Cargando modelo DeepSeek 1.5B...")
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
     model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
@@ -234,10 +221,6 @@ def cargar_modelo():
     print("Modelo cargado correctamente")
     return model, tokenizer
 
-
-# ============================================================
-# RUTAS FLASK
-# ============================================================
 
 @app.route('/')
 def index():
@@ -304,10 +287,6 @@ def status():
     })
 
 
-# ============================================================
-# INICIALIZACIÓN
-# ============================================================
-
 def inicializar_app():
     global MODEL, TOKENIZER, DATOS_TRAIN, STATS
 
@@ -318,27 +297,25 @@ def inicializar_app():
     # Cargar datos
     csv_path = r"data/processed/train.csv"
     if not os.path.exists(csv_path):
-        print(f"⚠️  Archivo {csv_path} no encontrado")
+        print(f"AVISO: Archivo {csv_path} no encontrado")
         print("Por favor, asegúrate de que train.csv está en la ruta correcta")
         return False
 
-    print(f"📂 Cargando dataset: {csv_path}")
+    print(f"Cargando dataset: {csv_path}")
     DATOS_TRAIN = leer_csv(csv_path)
-    print(f"✓ Dataset cargado: {len(DATOS_TRAIN)} compuestos")
+    print(f" - Dataset cargado: {len(DATOS_TRAIN)} compuestos")
 
     # Analizar estadísticas
-    print("📊 Analizando estadísticas del dataset...")
+    print("Analizando estadísticas del dataset...")
     STATS = analizar_datos(DATOS_TRAIN)
-    print(f"✓ CCS range: {STATS['ccs_min']:.1f} - {STATS['ccs_max']:.1f} Å²")
-    print(f"✓ Correlación m/z-CCS: {STATS['correlacion_mz_ccs']:.3f}")
+    print(f" - CCS range: {STATS['ccs_min']:.1f} - {STATS['ccs_max']:.1f} Å²")
+    print(f" - Correlación m/z-CCS: {STATS['correlacion_mz_ccs']:.3f}")
 
     # Cargar modelo
-    print("🤖 Cargando modelo DeepSeek...")
+    print("Cargando modelo DeepSeek...")
     MODEL, TOKENIZER = cargar_modelo()
-    print("✓ Modelo cargado y listo")
-
-    print("=" * 70)
-    print("✓ Aplicación lista para recibir peticiones")
+    print(" - Modelo cargado y listo")
+    print(" - Aplicación lista para recibir peticiones")
     print("=" * 70)
     return True
 
@@ -347,4 +324,4 @@ if __name__ == '__main__':
     if inicializar_app():
         app.run(debug=True, host='0.0.0.0', port=5000)
     else:
-        print("❌ Error en la inicialización. Verifica la configuración.")
+        print("ERROR en la inicialización. Verifica la configuración.")

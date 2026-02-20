@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #AFE4BA;
+            background: #c8e6ce;
             min-height: 100vh;
             padding: 20px;
         }
@@ -96,7 +96,7 @@
         .btn {
             width: 100%;
             padding: 15px;
-            background: #3B5C3F;
+            background: #648f69;
             color: white;
             border: none;
             border-radius: 8px;
@@ -137,7 +137,7 @@
         }
 
         .result-main {
-            background: #3B5C3F;
+            background: #648f69;
             color: white;
             padding: 25px;
             border-radius: 12px;
@@ -224,7 +224,7 @@
         }
 
         .compound-item {
-            background: white;
+            background: #f8f9fa;
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 10px;
@@ -232,11 +232,11 @@
         }
 
         .compound-item code {
-            background: #f4f4f4;
+            background: #f7fcf8;
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 0.9em;
-            color: #d63384;
+            color: #3B5C3F;
         }
 
         .loading {
@@ -279,7 +279,7 @@
         }
 
         .info-box {
-            background: #e7f3ff;
+            background: #f8f9fa;
             border-left: 4px solid #3B5C3F;
             padding: 15px;
             border-radius: 8px;
@@ -433,7 +433,7 @@
                     </div>
 
                     <div class="similar-compounds" id="similarCompounds" style="display: none;">
-                        <h4 style="color: #3B5C3F; margin-bottom: 15px;">Similar Compounds from Database</h4>
+                        <h4 style="color: #444; margin-bottom: 15px;">Similar Compounds from Database</h4>
                         <div id="compoundsList"></div>
                     </div>
                 </div>
@@ -570,8 +570,9 @@
                 const compoundsHTML = data.similar_compounds.map((c, i) => `
                     <div class="compound-item">
                         <strong>Reference ${i + 1}</strong><br>
-                        <small>SMILES: <code>${c.smiles.substring(0, 50)}${c.smiles.length > 50 ? '...' : ''}</code></small><br>
-                        <small>m/z: <strong>${c.mz.toFixed(4)}</strong> | CCS: <strong>${c.ccs.toFixed(2)} Ų</strong></small>
+                        <small> - SMILES: </small><code>${c.smiles}</code><br>
+                        <small> - m/z: ${c.mz.toFixed(4)}</small><br>
+                        <small> - CCS: ${c.ccs.toFixed(2)} Ų</small>
                     </div>
                 `).join('');
 

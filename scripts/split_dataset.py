@@ -3,7 +3,7 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 
 # Cargar dataset
-df = pd.read_csv("data/raw/dataset.csv")
+df = pd.read_csv("../data/raw/dataset.csv")
 
 print(f"Dataset original: {len(df)} filas")
 
@@ -36,10 +36,10 @@ else:
     print("No hay moléculas compartidas entre train y test")
 
 # Guardar
-Path("data/processed").mkdir(parents=True, exist_ok=True)
-train_df.to_csv("data/processed/train.csv", index=False)
-test_df.to_csv("data/processed/test.csv", index=False)
+Path("../data/processed").mkdir(parents=True, exist_ok=True)
+train_df.to_csv("../data/processed/train.csv", index=False)
+test_df.to_csv("../data/processed/test.csv", index=False)
 
 print(f"\nGuardado en:")
-print(f" -data/processed/train.csv")
-print(f" -data/processed/test.csv")
+print(f" - data/processed/train.csv")
+print(f" - data/processed/test.csv")
