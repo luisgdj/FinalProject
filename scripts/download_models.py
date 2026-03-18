@@ -3,7 +3,10 @@ import sys
 from huggingface_hub import snapshot_download, HfApi
 from huggingface_hub.utils import HfHubHTTPError
 
+# Cambiar esta ruta al luego donde se descargarán los modelos
 DIRECTORIO_BASE = r"D:\Modelos TFG"
+
+# Añadir nombres de modelos en HuggingFace para descargar
 MODELOS = [
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
@@ -11,6 +14,7 @@ MODELOS = [
 ]
 # Token de HuggingFace (necesario solo para modelos privados o con licencia)
 HF_TOKEN = None # Se deja en None si el modelo es público
+
 
 # INSTALACIÓN DE DEPENDENCIAS
 def instalar_si_falta(paquete):
@@ -26,6 +30,7 @@ for pkg in ["huggingface_hub", "tqdm"]:
     instalar_si_falta(pkg)
 
 
+# FUNCIONES
 def obtener_nombre_carpeta(repo_id: str) -> str:
     """Convierte 'org/nombre-modelo' → 'nombre-modelo'"""
     return repo_id.split("/")[-1]
