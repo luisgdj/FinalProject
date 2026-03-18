@@ -203,15 +203,16 @@ def predecir_ccs(model, tokenizer, prompt, mz_fallback, stats, max_new_tokens=15
         "fallback": True
     }
 
-
 def cargar_modelo():
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
-    model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    model_path = r"D:\Modelos TFG\DeepSeek-R1-Distill-Qwen-1.5B"  # Ruta local
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
     model = AutoModelForCausalLM.from_pretrained(
-        model_name,
+        model_path,
         device_map="cpu",
         trust_remote_code=True,
         torch_dtype=torch.float32,
@@ -322,6 +323,6 @@ def inicializar_app():
 
 if __name__ == '__main__':
     if inicializar_app():
-        app.run(debug=True, host='0.0.0.0', port=5000)
+        app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     else:
         print("ERROR en la inicialización. Verifica la configuración.")
