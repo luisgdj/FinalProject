@@ -8,9 +8,10 @@ DIRECTORIO_BASE = r"D:\Modelos TFG"
 
 # Añadir nombres de modelos en HuggingFace para descargar
 MODELOS = [
-    "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-    "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-    "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
+    #"deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    #"deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+    #"deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+    #"RedHatAI/DeepSeek-R1-Distill-Qwen-7B-quantized.w4a16"
 ]
 # Token de HuggingFace (necesario solo para modelos privados o con licencia)
 HF_TOKEN = None # Se deja en None si el modelo es público
