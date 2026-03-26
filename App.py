@@ -89,50 +89,96 @@ def analizar_datos(datos):
     return stats
 
 
+def normalizar_aducto(adduct):
+    # Elimina la carga final del aducto para unificar formatos.
+    return adduct.rstrip('+-').strip()
+
+
 def seleccionar_ejemplos(datos, smiles_input, mz_input, adduct_input, n=5):
     caract_input = extraer_caracteristicas(smiles_input)
+    adduct_norm = normalizar_aducto(adduct_input)
+
+    # Filtrar solo compuestos con el mismo aducto
+    datos_filtrados = [d for d in datos if normalizar_aducto(d['adduct']) == adduct_norm]
+
+    # Si no hay suficientes ejemplos del mismo aducto, usar todos
+    if len(datos_filtrados) < n:
+        print(f"Aviso: solo {len(datos_filtrados)} ejemplos para aducto {adduct_norm}, usando dataset completo")
+        datos_filtrados = datos
+
     similitudes = []
-    for d in datos:
+    for d in datos_filtrados:
         caract = extraer_caracteristicas(d['smiles'])
+
         sim_mz = 1 / (1 + abs(d['mz'] - mz_input) / 100)
         sim_longitud = 1 / (1 + abs(caract['length'] - caract_input['length']) / 10)
-        sim_aducto = 1.0 if d['adduct'] == adduct_input else 0.3
         sim_estructura = 1 / (1 + abs(caract['num_rings'] - caract_input['num_rings']))
-        similitud = 0.4 * sim_mz + 0.2 * sim_longitud + 0.2 * sim_aducto + 0.2 * sim_estructura
+
+        similitud = 0.35 * sim_mz + 0.15 * sim_longitud + 0.50 * sim_estructura
         similitudes.append((similitud, d))
+
     similitudes.sort(reverse=True, key=lambda x: x[0])
     return [d for _, d in similitudes[:n]]
 
-
 def buscar_en_dataset(smiles, adduct, dataset):
+    adduct_norm = normalizar_aducto(adduct)
     for row in dataset:
-        if row["smiles"] == smiles and row["adduct"] == adduct:
+        if row["smiles"] == smiles and normalizar_aducto(row["adduct"]) == adduct_norm:
             return row["ccs"]
     return None
 
 
+ADDUCT_INFO = {
+    '[M+H]': {'charge': 1, 'mass_add': 1.007, 'effect': 'standard reference, protonated'},
+    '[M+Na]': {'charge': 1, 'mass_add': 22.989, 'effect': 'sodium adduct, slightly larger CCS than [M+H]+'},
+    '[M+K]': {'charge': 1, 'mass_add': 38.963, 'effect': 'potassium adduct, larger CCS than [M+Na]+'},
+    '[M-H]': {'charge': -1, 'mass_add': -1.007, 'effect': 'deprotonated negative mode, typically smaller CCS'},
+    '[M+NH4]': {'charge': 1, 'mass_add': 18.034, 'effect': 'ammonium adduct, bulkier than [M+H]+'},
+    '[M+2H]2': {'charge': 2, 'mass_add': 2.014, 'effect': 'doubly charged, molecule compacts, lower CCS per charge'},
+    '[M+FA-H]': {'charge': -1, 'mass_add': 44.998, 'effect': 'formate adduct negative mode'},
+    '[M+Hac-H]': {'charge': -1, 'mass_add': 59.013, 'effect': 'acetate adduct negative mode'},
+}
+
+
 def construir_prompt_simple(smiles, mz, adduct, stats, ejemplos):
     feat = extraer_caracteristicas(smiles)
+
+    # Información del aducto
+    adduct_norm = normalizar_aducto(adduct)
+    info = ADDUCT_INFO.get(adduct_norm, {'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'})
+
     ejemplos_texto = ""
     for ej in ejemplos[:4]:
-        ejemplos_texto += f"  m/z={ej['mz']:.1f} | rings={extraer_caracteristicas(ej['smiles'])['num_rings']} | CCS={ej['ccs']:.2f}\n"
+        ejemplos_texto += (
+            f"  SMILES={ej['smiles'][:30]} | adduct={ej['adduct']} | "
+            f"m/z={ej['mz']:.1f} | rings={extraer_caracteristicas(ej['smiles'])['num_rings']} | "
+            f"CCS={ej['ccs']:.2f}\n"
+        )
 
     prompt = f"""Predict the CCS (collision cross-section, in Ų) for this molecule in mass spectrometry.
 
 Molecule:
   SMILES: {smiles}
   m/z: {mz:.4f}
-  Adduct: {adduct}
+  Adduct: {adduct_norm}
+  Adduct effect: {info['effect']}
+  Ionic charge: {info['charge']:+d} | Mass contribution of adduct: {info['mass_add']:.3f} Da
   Rings: {feat['num_rings']} | Branches: {feat['num_branches']} | Aromatic atoms: {feat['aromatic_atoms']}
   N={feat['num_N']} O={feat['num_O']} S={feat['num_S']} Charge={feat['net_charge']}
 
-Reference molecules with known CCS:
+Reference molecules with known CCS (same or similar adduct preferred):
 {ejemplos_texto}
 Dataset CCS range: {stats['ccs_min']:.1f} - {stats['ccs_max']:.1f} Ų (average: {stats['ccs_avg']:.1f})
 
-Rules: larger m/z → larger CCS. More rings/aromatic atoms → more compact → smaller CCS. More flexible chains → larger CCS.
+Rules:
+- Larger m/z → larger CCS
+- More rings/aromatic atoms → more compact → smaller CCS
+- More flexible chains → larger CCS
+- Adducts with larger ions (Na, K) → slightly larger CCS than [M+H]+
+- Multiply charged ions → more compact geometry → smaller CCS relative to m/z
+- Negative mode ([M-H]-) → typically slightly smaller CCS than positive mode
 
-Based on the reference molecules and the rules, the predicted CCS is:
+The adduct is {adduct} ({info['effect']}). Based on the reference molecules, the rules, and the adduct effect, the predicted CCS is:
 """
     return prompt
 
@@ -213,19 +259,23 @@ def cargar_modelo():
 
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        device_map="cpu",
-        trust_remote_code=True,
-        torch_dtype=torch.float32,
-        low_cpu_mem_usage=True
+        device_map = "cpu",
+        trust_remote_code = True,
+        torch_dtype = torch.float32, # CPU requiere float32 para quantize_dynamic
+        low_cpu_mem_usage = False
     )
+
+    # Cuantización dinámica AL CARGAR (justo después, antes de cualquier uso)
     model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
+
+    model.eval()  # Modo inferencia: desactiva dropout y gradientes
     print("Modelo cargado correctamente")
     return model, tokenizer
 
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('Index.html')
 
 
 @app.route('/predict', methods=['POST'])

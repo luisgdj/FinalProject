@@ -6,7 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="69983a37-6f4a-4135-9702-6779ab41cf33" name="Changes" comment=".">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/download_models.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/download_models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/App.py" beforeDir="false" afterPath="$PROJECT_DIR$/App.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -73,7 +73,7 @@
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\templates" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.download_models">
+  <component name="RunManager" selected="Python.App">
     <configuration name="App" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="FinalProject" />
       <option name="ENV_FILES" value="" />
@@ -164,8 +164,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.download_models" />
         <item itemvalue="Python.App" />
+        <item itemvalue="Python.download_models" />
         <item itemvalue="Python.split_dataset" />
         <item itemvalue="Python.explore_dataset" />
       </list>
@@ -258,7 +258,15 @@
       <option name="project" value="LOCAL" />
       <updated>1773834626742</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary=".">
+      <option name="closed" value="true" />
+      <created>1774354616812</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1774354616812</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
