@@ -64,7 +64,7 @@ def leer_csv(filepath):
             try:
                 datos.append({
                     'smiles': row['smiles'].strip(),
-                    'adduct': row['Adduct'].strip() if 'Adduct' in row else '[M+H]+',
+                    'adduct': row['Adduct'].strip(),
                     'mz': float(row['m/z']),
                     'ccs': float(row['CCS_AVG'])
                 })
@@ -120,10 +120,11 @@ def seleccionar_ejemplos(datos, smiles_input, mz_input, adduct_input, n=5):
     similitudes.sort(reverse=True, key=lambda x: x[0])
     return [d for _, d in similitudes[:n]]
 
+
 def buscar_en_dataset(smiles, adduct, dataset):
     adduct_norm = normalizar_aducto(adduct)
     for row in dataset:
-        if row["smiles"] == smiles and normalizar_aducto(row["adduct"]) == adduct_norm:
+        if row["smiles"] == smiles and normalizar_aducto(row["Adduct"]) == adduct_norm:
             return row["ccs"]
     return None
 
@@ -138,7 +139,6 @@ ADDUCT_INFO = {
     '[M+FA-H]': {'charge': -1, 'mass_add': 44.998, 'effect': 'formate adduct negative mode'},
     '[M+Hac-H]': {'charge': -1, 'mass_add': 59.013, 'effect': 'acetate adduct negative mode'},
 }
-
 
 def construir_prompt_completo(smiles, mz, adduct, stats, ejemplos):
     feat = extraer_caracteristicas(smiles)
@@ -178,7 +178,96 @@ Rules:
 - Multiply charged ions → more compact geometry → smaller CCS relative to m/z
 - Negative mode ([M-H]-) → typically slightly smaller CCS than positive mode
 
-The adduct is {adduct} ({info['effect']}). Based on the reference molecules, the rules, and the adduct effect, the predicted CCS is:
+The adduct is {adduct} ({info['effect']}). Based on the reference SMILES, the reference molecules, the rules, and the adduct effect, the predicted CCS is:
+"""
+    return prompt
+
+
+def construir_prompt_ejemplos(smiles, mz, adduct, stats, ejemplos):
+    feat = extraer_caracteristicas(smiles)
+
+    # Información del aducto
+    adduct_norm = normalizar_aducto(adduct)
+    info = ADDUCT_INFO.get(adduct_norm, {'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'})
+
+    ejemplos_texto = ""
+    for ej in ejemplos[:4]:
+        ejemplos_texto += (
+            f"  SMILES={ej['smiles'][:30]} | adduct={ej['adduct']} | "
+            f"m/z={ej['mz']:.1f} | rings={extraer_caracteristicas(ej['smiles'])['num_rings']} | "
+            f"CCS={ej['ccs']:.2f}\n"
+        )
+
+    prompt = f"""Predict the CCS (collision cross-section, in Ų) for this molecule in mass spectrometry.
+
+Molecule:
+  SMILES: {smiles}
+  m/z: {mz:.4f}
+  Adduct: {adduct_norm}
+  Adduct effect: {info['effect']}
+  Ionic charge: {info['charge']:+d} | Mass contribution of adduct: {info['mass_add']:.3f} Da
+  Rings: {feat['num_rings']} | Branches: {feat['num_branches']} | Aromatic atoms: {feat['aromatic_atoms']}
+  N={feat['num_N']} O={feat['num_O']} S={feat['num_S']} Charge={feat['net_charge']}
+
+Reference molecules with known CCS (same or similar adduct preferred):
+{ejemplos_texto}
+Dataset CCS range: {stats['ccs_min']:.1f} - {stats['ccs_max']:.1f} Ų (average: {stats['ccs_avg']:.1f})
+
+The adduct is {adduct} ({info['effect']}). Based on the reference SMILES, the reference molecules, and the adduct effect, the predicted CCS is:
+"""
+    return prompt
+
+
+def construir_prompt_ce(smiles, mz, adduct):
+    feat = extraer_caracteristicas(smiles)
+
+    # Información del aducto
+    adduct_norm = normalizar_aducto(adduct)
+    info = ADDUCT_INFO.get(adduct_norm, {'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'})
+
+    prompt = f"""Predict the CCS (collision cross-section, in Ų) for this molecule in mass spectrometry.
+
+Molecule:
+  SMILES: {smiles}
+  m/z: {mz:.4f}
+  Adduct: {adduct_norm}
+  Adduct effect: {info['effect']}
+  Ionic charge: {info['charge']:+d} | Mass contribution of adduct: {info['mass_add']:.3f} Da
+  Rings: {feat['num_rings']} | Branches: {feat['num_branches']} | Aromatic atoms: {feat['aromatic_atoms']}
+  N={feat['num_N']} O={feat['num_O']} S={feat['num_S']} Charge={feat['net_charge']}
+
+Rules:
+- Larger m/z → larger CCS
+- More rings/aromatic atoms → more compact → smaller CCS
+- More flexible chains → larger CCS
+- Adducts with larger ions (Na, K) → slightly larger CCS than [M+H]+
+- Multiply charged ions → more compact geometry → smaller CCS relative to m/z
+- Negative mode ([M-H]-) → typically slightly smaller CCS than positive mode
+
+The adduct is {adduct} ({info['effect']}). Based on the reference SMILES, the rules, and the adduct effect, the predicted CCS is:
+"""
+    return prompt
+
+
+def construir_prompt_simple(smiles, mz, adduct):
+    feat = extraer_caracteristicas(smiles)
+
+    # Información del aducto
+    adduct_norm = normalizar_aducto(adduct)
+    info = ADDUCT_INFO.get(adduct_norm, {'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'})
+
+    prompt = f"""Predict the CCS (collision cross-section, in Ų) for this molecule in mass spectrometry.
+
+Molecule:
+  SMILES: {smiles}
+  m/z: {mz:.4f}
+  Adduct: {adduct_norm}
+  Adduct effect: {info['effect']}
+  Ionic charge: {info['charge']:+d} | Mass contribution of adduct: {info['mass_add']:.3f} Da
+  Rings: {feat['num_rings']} | Branches: {feat['num_branches']} | Aromatic atoms: {feat['aromatic_atoms']}
+  N={feat['num_N']} O={feat['num_O']} S={feat['num_S']} Charge={feat['net_charge']}
+
+The adduct is {adduct} ({info['effect']}). Based on the reference SMILES and the adduct effect, the predicted CCS is:
 """
     return prompt
 
