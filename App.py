@@ -140,7 +140,7 @@ ADDUCT_INFO = {
 }
 
 
-def construir_prompt_simple(smiles, mz, adduct, stats, ejemplos):
+def construir_prompt_completo(smiles, mz, adduct, stats, ejemplos):
     feat = extraer_caracteristicas(smiles)
 
     # Información del aducto
@@ -261,7 +261,7 @@ def cargar_modelo():
         model_path,
         device_map = "cpu",
         trust_remote_code = True,
-        torch_dtype = torch.float32, # CPU requiere float32 para quantize_dynamic
+        dtype = torch.float32, # CPU requiere float32 para quantize_dynamic
         low_cpu_mem_usage = False
     )
 
@@ -308,7 +308,7 @@ def predict():
         ejemplos = seleccionar_ejemplos(DATOS_TRAIN, smiles, mz, adduct, n=5)
 
         # Construir prompt
-        prompt = construir_prompt_simple(smiles, mz, adduct, STATS, ejemplos)
+        prompt = construir_prompt_completo(smiles, mz, adduct, STATS, ejemplos)
 
         # Predecir
         resultado = predecir_ccs(MODEL, TOKENIZER, prompt, mz, STATS)
