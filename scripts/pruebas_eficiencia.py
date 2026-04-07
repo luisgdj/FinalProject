@@ -1,7 +1,7 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask
 import os
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer
 import json
 import re
 import csv
@@ -142,121 +142,176 @@ ADDUCT_INFO = {
     '[M+Hac-H]': {'charge': -1, 'mass_add': 59.013, 'effect': 'acetate adduct negative mode'},
 }
 
-def construir_prompt(smiles, mz, adduct, stats, ejemplos, n = 5):
+
+def construir_prompt(smiles, mz, adduct, stats, ejemplos, n=5):
     feat = extraer_caracteristicas(smiles)
 
-    # Información del aducto
     adduct_norm = normalizar_aducto(adduct)
-    info = ADDUCT_INFO.get(adduct_norm, {'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'})
+    info = ADDUCT_INFO.get(adduct_norm, {
+        'charge': 1,
+        'mass_add': 0,
+        'effect': 'unknown adduct type'
+    })
 
     ejemplos_texto = ""
     for ej in ejemplos[:n]:
+        feat_ej = extraer_caracteristicas(ej['smiles'])
         ejemplos_texto += (
             f"  SMILES={ej['smiles']} | adduct={ej['adduct']} | "
-            f"m/z={ej['mz']} | rings={extraer_caracteristicas(ej['smiles'])['num_rings']} | "
-            f"CCS={ej['ccs']}\n"
+            f"m/z={ej['mz']} | rings={feat_ej['num_rings']} | "
+            f"branches={feat_ej['num_branches']} | CCS={ej['ccs']}\n"
         )
 
-    prompt = f"""Predict the CCS (collision cross-section, in Ų) for this molecule in mass spectrometry.
+    # Ancla heurística basada en m/z (evita que el modelo devuelva el promedio)
+    ratio = (mz - stats['mz_min']) / max(stats['mz_max'] - stats['mz_min'], 1)
+    ccs_heuristic = stats['ccs_min'] + ratio * (stats['ccs_max'] - stats['ccs_min'])
 
-Molecule:
-  SMILES: {smiles}
-  m/z: {mz:.4f}
-  Adduct: {adduct_norm}
-  Adduct effect: {info['effect']}
-  Ionic charge: {info['charge']:+d} | Mass contribution of adduct: {info['mass_add']:.3f} Da
-  Rings: {feat['num_rings']} | Branches: {feat['num_branches']} | Aromatic atoms: {feat['aromatic_atoms']}
-  N={feat['num_N']} O={feat['num_O']} S={feat['num_S']} Charge={feat['net_charge']}
+    # Rango esperado: ±15% alrededor de la heurística, acotado al dataset
+    ccs_low  = max(stats['ccs_min'], ccs_heuristic * 0.85)
+    ccs_high = min(stats['ccs_max'], ccs_heuristic * 1.15)
 
-Rules:
-- Larger m/z → larger CCS
-- More rings/aromatic atoms → more compact → smaller CCS
-- More flexible chains → larger CCS
-- Adducts with larger ions (Na, K) → slightly larger CCS than [M+H]+
-- Multiply charged ions → more compact geometry → smaller CCS relative to m/z
-- Negative mode ([M-H]-) → typically slightly smaller CCS than positive mode
+    prompt = f"""You are a mass spectrometry expert specializing in ion mobility. Estimate the CCS (Å²) of the target molecule.
 
-Reference molecules with known CCS (same or similar adduct preferred):
+CCS measures the rotationally-averaged collision cross-section: larger, more branched, or more rigid molecules have higher CCS.
+
+TARGET
+------
+SMILES: {smiles}
+m/z: {mz:.4f} | Adduct: {adduct_norm} ({info['effect']}, charge {info['charge']:+d})
+Rings: {feat['num_rings']} | Branches: {feat['num_branches']} | Aromatic atoms: {feat['aromatic_atoms']}
+N:{feat['num_N']} O:{feat['num_O']} S:{feat['num_S']} | Net charge: {feat['net_charge']}
+
+REFERENCE MOLECULES (ranked by structural similarity — use for interpolation, do not copy values)
+-------------------------------------------------------------------------------------------------
 {ejemplos_texto}
-Dataset CCS range: {stats['ccs_min']:.1f} - {stats['ccs_max']:.1f} Ų (average: {stats['ccs_avg']:.1f})
+DATASET STATISTICS
+------------------
+CCS range: {stats['ccs_min']:.1f}–{stats['ccs_max']:.1f} Å² | Average: {stats['ccs_avg']:.1f} Å²
+m/z-based heuristic estimate: {ccs_heuristic:.1f} Å² (expected range: {ccs_low:.1f}–{ccs_high:.1f} Å²)
+NOTE: the heuristic is a lower bound — use references for the final estimate.
 
-The adduct is {adduct} ({info['effect']}). Based on the reference SMILES, the reference molecules, the rules, and the adduct effect, 
-the predicted CCS value is: </think> predicted_ccs=[number]
-"""
-    #
-    # the predicted CCS float value is (respond only with \\boxed{{number}}):
+RULES
+-----
+1. Identify the 2–3 most similar references (same adduct, similar rings and branches).
+2. Interpolate: more rings/branches → higher CCS; smaller molecule → lower CCS.
+3. Your answer MUST be a single number different from all reference CCS values.
+4. If the target is smaller than references, predict below their range.
+5. Never return the dataset average ({stats['ccs_avg']:.1f}) as your answer.
+
+Think step by step before answering.
+
+OUTPUT (one number only, no extra text):
+Based on the structure and the references, the predicted CCS is approximately """
     return prompt
 
 
-def predecir_ccs(model, tokenizer, prompt, mz_fallback, stats, max_new_tokens = 30):
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048)
+def parsear_respuesta(respuesta):
 
-    with torch.no_grad():
+    resultado = {}
+
+    # Priorizar texto después de </think>
+    if "</think>" in respuesta:
+        texto = respuesta.split("</think>")[-1].strip()
+    elif "<think>" in respuesta:
+        texto = respuesta.split("<think>")[0].strip()
+    else:
+        texto = respuesta.strip()
+
+    # Captura números con o sin markdown bold (**201.58** o 201.58 o 195.9)
+    numeros = re.findall(r'\*{0,2}(\d{2,3}(?:\.\d+)?)\*{0,2}', texto)
+    for num_str in numeros:
+        ccs = float(num_str)
+        if 130 < ccs < 280:
+            resultado['predicted_ccs'] = round(ccs, 2)
+            break
+
+    if 'predicted_ccs' not in resultado:
+        numeros = re.findall(r'\*{0,2}(\d{2,3}(?:\.\d+)?)\*{0,2}', respuesta)
+        for num_str in numeros:
+            ccs = float(num_str)
+            if 130 < ccs < 280:
+                resultado['predicted_ccs'] = round(ccs, 2)
+                break
+
+    resultado['confidence'] = 'unknown'
+    resultado['fallback'] = 'predicted_ccs' not in resultado
+    return resultado
+
+def clasificar_prediccion(ccs_pred, ejemplos, stats):
+
+    # Lista ordenada de CCS de referencia
+    ccs_referencias = {ej['ccs'] for ej in ejemplos}
+    avg = stats['ccs_avg']
+
+    # CASO 1: Comprobar si es la media del dataset
+    if abs(ccs_pred - avg) <= 0.1:
+        return 'dataset_avg', ccs_pred
+    # CASO 2: Comprobar si es copia exacta de referencia
+    if any(abs(ccs_pred - ref) <= 0.02 for ref in ccs_referencias):
+        return 'exact_copy', ccs_pred
+    # CASO 3: Interpolación propia del modelo
+    return 'interpolated', ccs_pred
+
+
+def predecir_ccs(model, tokenizer, prompt, mz_fallback, stats, ejemplos):
+
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048)
+    print(f" Tokens del prompt: {inputs['input_ids'].shape[1]}")
+
+    # Inferencia eficiente
+    with torch.inference_mode():
         outputs = model.generate(
             **inputs,
-            do_sample = False,
-            max_new_tokens = max_new_tokens,
-            use_cache = False,
-            pad_token_id = tokenizer.eos_token_id,
-            repetition_penalty = 1.1
+            # Sampling controlado
+            do_sample = False, # Activar sampling para el 7B
+            # temperature = 0.6, # Recomendado oficialmente para DeepSeek-R1
+            # top_p = 0.95,
+            # Tokens: solo lo necesario
+            max_new_tokens = 80,  # Mínimo para DeepSeek-R1 con razonamiento ->512 (Comprimiso entre calidad y velocidad -> 256)
+            # Penalización suave
+            # repetition_penalty = 1.15,
+
+            # use_cache = False, # Si me quedo sin VRAM
+            pad_token_id = tokenizer.eos_token_id
         )
 
     respuesta_completa = tokenizer.decode(outputs[0], skip_special_tokens=True)
     prompt_texto = tokenizer.decode(inputs['input_ids'][0], skip_special_tokens=True)
-    respuesta = respuesta_completa[len(prompt_texto):].strip() # esto es solo la parte nueva
+    respuesta = respuesta_completa[len(prompt_texto):].strip()
 
-    print(json.dumps("RESPUESTA COMPLETA: " + respuesta_completa))
-    print("RESPUESTA CRUDA: " + repr(respuesta))  # para depuración
+    print(" RESPUESTA COMPLETA: " + json.dumps(respuesta_completa))
+    print(" RESPUESTA CRUDA: " + json.dumps(respuesta))
 
-    # 1. Intentar parsear JSON
-    try:
-        match = re.search(r'\{[^{}]+\}', respuesta, re.DOTALL)
-        if match:
-            data = json.loads(match.group())
-            if "predicted_ccs" in data:
-                ccs = float(data["predicted_ccs"])
-                if ccs > 0:
-                    return {
-                        "predicted_ccs": round(ccs, 2),
-                        "shape": data.get("shape", "Unknown"),
-                        "reasoning": data.get("reasoning", "From JSON"),
-                        "fallback": False
-                    }
-    except:
-        pass
+    resultado = parsear_respuesta(respuesta)
 
-    # 2. Buscar números en la respuesta
-    patrones_numero = [
-        r'(?:is|=|:)\s*(\d{3}\.?\d*)',
-        r'(\d{3}\.\d+)',
-        r'(\d{3})',
-    ]
-    for patron in patrones_numero:
-        matches = re.findall(patron, respuesta)
-        for m in matches:
-            ccs = float(m)
-            if ccs > 0:
-                return {
-                    "predicted_ccs": round(ccs, 2),
-                    "shape": "Unknown",
-                    "reasoning": "Extracted from model text",
-                    "fallback": True
-                }
+    if resultado['fallback']:
+        ratio = (mz_fallback - stats['mz_min']) / max(stats['mz_max'] - stats['mz_min'], 1)
+        resultado['predicted_ccs'] = round(
+            stats['ccs_min'] + ratio * (stats['ccs_max'] - stats['ccs_min']), 2
+        )
+        resultado['pred_type'] = 'heuristic_fallback'
+        resultado['reasoning'] = "Heuristic fallback based on m/z interpolation"
+    else:
+        tipo, ccs_final = clasificar_prediccion(resultado['predicted_ccs'], ejemplos, stats)
+        resultado['pred_type'] = tipo
+        resultado['predicted_ccs_raw'] = resultado['predicted_ccs']
+        resultado['predicted_ccs'] = ccs_final
 
-    # 3. Fallback heurístico
-    ratio = (mz_fallback - stats['mz_min']) / max(stats['mz_max'] - stats['mz_min'], 1)
-    ccs_estimado = stats['ccs_min'] + ratio * (stats['ccs_max'] - stats['ccs_min'])
-    return {
-        "predicted_ccs": round(ccs_estimado, 2),
-        "shape": "Moderate",
-        "reasoning": "Heuristic fallback based on m/z interpolation",
-        "fallback": True
-    }
+        if tipo == 'exact_copy':
+            resultado['reasoning'] = f"Model copied reference value ({ccs_final})"
+        elif tipo == 'dataset_avg':
+            resultado['reasoning'] = f"Model returned dataset average ({ccs_final})"
+        else:
+            resultado['reasoning'] = f"Model interpolation ({ccs_final})"
+
+    return resultado
 
 
 def cargar_modelo():
+
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
     model_path = r"D:\Modelos TFG\DeepSeek-R1-Distill-Qwen-1.5B"  # Ruta local
+    print(f" - Ruta: {model_path}")
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
@@ -266,81 +321,12 @@ def cargar_modelo():
         model_path,
         device_map = "cpu",
         trust_remote_code = True,
-        dtype = torch.float32, # CPU requiere float32 para quantize_dynamic
-        low_cpu_mem_usage = False
+        dtype = torch.float16,
+        low_cpu_mem_usage = True
     )
 
-    # Cuantización dinámica AL CARGAR (justo después, antes de cualquier uso)
-    model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
-
     model.eval()  # Modo inferencia: desactiva dropout y gradientes
-    print("Modelo cargado correctamente de ruta " + model_path)
     return model, tokenizer
-
-
-@app.route('/')
-def index():
-    return render_template('Index.html')
-
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    global MODEL, TOKENIZER, DATOS_TRAIN, STATS
-
-    try:
-        data = request.json
-        smiles = data.get('smiles', '').strip()
-        mz = float(data.get('mz', 0))
-        adduct = data.get('adduct', '[M+H]+').strip()
-
-        if not smiles or mz <= 0:
-            return jsonify({'error': 'Invalid input parameters'}), 400
-
-        # Buscar si existe en el dataset
-        ccs_real = buscar_en_dataset(smiles, adduct, DATOS_TRAIN)
-        if ccs_real is not None:
-            return jsonify({
-                'success': True,
-                'predicted_ccs': round(ccs_real, 2),
-                'shape': 'Known',
-                'reasoning': 'Exact match found in training dataset',
-                'fallback': False,
-                'from_dataset': True,
-                'molecular_features': extraer_caracteristicas(smiles)
-            })
-
-        # Seleccionar ejemplos similares
-        ejemplos = seleccionar_ejemplos(DATOS_TRAIN, smiles, mz, adduct)
-
-        # Construir prompt
-        prompt = construir_prompt(smiles, mz, adduct, STATS, ejemplos)
-
-        # Predecir
-        resultado = predecir_ccs(MODEL, TOKENIZER, prompt, mz, STATS)
-
-        # Añadir información adicional
-        resultado['molecular_features'] = extraer_caracteristicas(smiles)
-        resultado['similar_compounds'] = [
-            {'smiles': ej['smiles'], 'mz': ej['mz'], 'ccs': ej['ccs'], 'adduct': ej['adduct']}
-            for ej in ejemplos[:3]
-        ]
-        resultado['success'] = True
-        resultado['from_dataset'] = False
-
-        return jsonify(resultado)
-
-    except Exception as e:
-        return jsonify({'error': str(e), 'success': False}), 500
-
-
-@app.route('/status')
-def status():
-    return jsonify({
-        'model_loaded': MODEL is not None,
-        'dataset_loaded': DATOS_TRAIN is not None,
-        'dataset_size': len(DATOS_TRAIN) if DATOS_TRAIN else 0,
-        'stats': STATS if STATS else {}
-    })
 
 
 def inicializar_app():
@@ -351,7 +337,7 @@ def inicializar_app():
     print("=" * 70)
 
     # Cargar datos
-    csv_path = r"data/processed/train.csv"
+    csv_path = r"../data/processed/train.csv"
     if not os.path.exists(csv_path):
         print(f"AVISO: Archivo {csv_path} no encontrado")
         print("Por favor, asegúrate de que train.csv está en la ruta correcta")
@@ -376,7 +362,7 @@ def inicializar_app():
     return True
 
 
-def test():
+def test_prompt():
     global MODEL, TOKENIZER, DATOS_TRAIN, STATS
 
     # Ejemplos de la tabla
@@ -390,14 +376,13 @@ def test():
     ]
 
     print("=" * 70)
-    print("TEST PROMPT COMPLETO")
-    print("=" * 70)
+    print("PRUEBA DE EFICIENCIA")
 
     for i, caso in enumerate(test_cases, 1):
         smiles, mz, adduct = caso["smiles"], caso["mz"], caso["adduct"]
-        print(f"\n{'='*70}")
-        print(f"COMPUESTO {i} | m/z={mz} | Aducto={adduct}")
-        print(f"SMILES: {smiles[:60]}...")
+        print(f"{'='*70}")
+        print(f"COMPUESTO {i} | m/z = {mz} | Aducto = {adduct}")
+        print(f"SMILES: {smiles}")
         print(f"{'='*70}")
 
         # Limpiar caché entre predicciones
@@ -407,21 +392,19 @@ def test():
 
         ejemplos = seleccionar_ejemplos(DATOS_TRAIN, smiles, mz, adduct)
         prompt = construir_prompt(smiles, mz, adduct, STATS, ejemplos)
-        resultado = predecir_ccs(MODEL, TOKENIZER, prompt, mz, STATS)
+        resultado = predecir_ccs(MODEL, TOKENIZER, prompt, mz, STATS, ejemplos)
 
         fallback_str = " [FALLBACK]" if resultado["fallback"] else ""
-        print(f"  [completo] CCS={resultado['predicted_ccs']:.2f} Ų{fallback_str}")
-        print(f"             Reasoning: {resultado['reasoning'][:80]}")
+        print(f" CCS = {resultado['predicted_ccs']:.2f} Ų{fallback_str}")
+        print(f" Reasoning: {resultado['reasoning'][:80]}")
 
     print(f"\n{'='*70}")
     print("TEST COMPLETADO")
     print("=" * 70)
 
-
 if __name__ == '__main__':
-    os.environ["TRANSFORMERS_VERBOSITY"] = "error"
     if inicializar_app():
-        # test()  # Cambiar para volver al servidor
-        app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+        test_prompt()  # <-- cambia esto por app.run(...) cuando quieras volver al servidor
+        # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     else:
         print("ERROR en la inicialización. Verifica la configuración.")
