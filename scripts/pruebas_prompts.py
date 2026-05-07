@@ -545,6 +545,38 @@ def inicializar_app():
     print("=" * 70)
     return True
 
+
+
+from openpyxl import Workbook, load_workbook
+
+def inicializar_excel(filepath, variantes):
+    """Crea el Excel con cabeceras si no existe."""
+    if os.path.exists(filepath):
+        return
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Predicciones CCS"
+    cabeceras = ["", "SMILES", "Aducto"]
+    cabeceras.extend(variantes)
+    ws.append(cabeceras)
+    wb.save(filepath)
+    print(f" - Excel creado: {filepath}")
+
+def guardar_fila_excel(filepath, fila):
+    """Añade una fila al Excel y guarda inmediatamente."""
+    wb = load_workbook(filepath)
+    ws = wb.active
+    ws.append(fila)
+    wb.save(filepath)
+
+def actualizar_celda_excel(filepath, fila_idx, col_idx, valor):
+    """Actualiza una celda concreta y guarda inmediatamente."""
+    wb = load_workbook(filepath)
+    ws = wb.active
+    ws.cell(row=fila_idx, column=col_idx, value=valor)
+    wb.save(filepath)
+
+
 def test_prompts():
     global MODEL, TOKENIZER, DATOS_TRAIN, STATS
 
@@ -785,8 +817,16 @@ def test_prompts():
         "completo": lambda s, a: construir_prompt_completo(s, a, DATOS_TRAIN, n=5),
     }
 
+    variantes = list(prompts_func.keys())
+
+    # Inicializar Excel con timestamp para no sobrescribir ejecuciones previas
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    excel_path = f"../data/results/predicciones_prompts_{timestamp}.xlsx"
+    os.makedirs(os.path.dirname(excel_path), exist_ok=True)
+    inicializar_excel(excel_path, variantes)
+
     print("=" * 70)
-    print("TEST DE PROMPTS")
+    print(f"TEST DE PROMPTS\nInicio de prueba: {datetime.now()})")
 
     for i, caso in enumerate(test_cases, 1):
         smiles, adduct = caso["smiles"], caso["adduct"]
@@ -800,7 +840,13 @@ def test_prompts():
         if hasattr(MODEL, 'reset_cache'):
             MODEL.reset_cache()
 
-        for nombre, fn_prompt in prompts_func.items():
+        # Crear la fila base del compuesto (predicciones vacías, se rellenarán abajo)
+        fila_base = [i, smiles, adduct] + [None] * len(variantes)
+        guardar_fila_excel(excel_path, fila_base)
+        # Cabecera = fila 1, así que el compuesto i va a fila i+1
+        fila_idx = i + 1
+
+        for j, (nombre, fn_prompt) in enumerate(prompts_func.items()):
             prompt = fn_prompt(smiles, adduct)
             print(f"Prompt {nombre}: ")
             resultado = predecir_ccs(MODEL, TOKENIZER, prompt, STATS, seleccionar_ejemplos(DATOS_TRAIN, smiles, adduct, n=5))
@@ -808,8 +854,13 @@ def test_prompts():
             print(f" - CCS = {resultado['predicted_ccs']:.2f} Å²{fallback_str}")
             print(f" - Reasoning: {resultado['reasoning'][:80]}")
 
+            # Guardar resultado inmediatamente en el Excel
+            # Columnas: 1=id, 2=smiles, 3=aducto, 4..=variantes
+            col_idx = 4 + j
+            actualizar_celda_excel(excel_path, fila_idx, col_idx, resultado["predicted_ccs"])
+
     print(f"\n{'='*70}")
-    print(f"TEST FINALIZADO A LAS {datetime.now()}")
+    print(f"TEST FINALIZADO!\nFin de prueba: {datetime.now()}")
     print("=" * 70)
 
 
