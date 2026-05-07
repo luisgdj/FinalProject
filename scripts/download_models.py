@@ -8,11 +8,12 @@ DIRECTORIO_BASE = r"D:\Modelos TFG"
 
 # Añadir nombres de modelos en HuggingFace para descargar
 MODELOS = [
-    #"deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-    #"deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-    #"deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+    "Qwen/Qwen2.5-7B-Instruct"
     #"RedHatAI/DeepSeek-R1-Distill-Qwen-7B-quantized.w4a16"
-    "RedHatAI/DeepSeek-R1-Distill-Qwen-14B-quantized.w4a16"
+    #"RedHatAI/DeepSeek-R1-Distill-Qwen-14B-quantized.w4a16"
 ]
 # Token de HuggingFace (necesario solo para modelos privados o con licencia)
 HF_TOKEN = None # Se deja en None si el modelo es público
@@ -91,21 +92,21 @@ def descargar_modelo(repo_id: str, directorio_base: str, token=None):
                 "onnx/*",
             ],
         )
-        print(f"\n  ✓ Descarga completada.")
+        print(f"\n   Descarga completada.")
         print(f"  Tamaño en disco: {tamanio_carpeta(destino)}")
 
     except HfHubHTTPError as e:
         if "401" in str(e) or "403" in str(e):
-            print(f"\n  ✗ Error de autenticación.")
-            print("    Este modelo requiere un token de HuggingFace.")
+            print(f"\nError de autenticación.")
+            print("   Este modelo requiere un token de HuggingFace.")
             print("    1. Ve a https://huggingface.co/settings/tokens")
             print("    2. Crea un token de lectura")
             print("    3. Añádelo en HF_TOKEN al inicio de este script")
         else:
-            print(f"\n  ✗ Error HTTP: {e}")
+            print(f"\n   Error HTTP: {e}")
 
     except Exception as e:
-        print(f"\n  ✗ Error inesperado: {e}")
+        print(f"\n   Error inesperado: {e}")
 
 
 def verificar_modelo(ruta: str) -> dict:
