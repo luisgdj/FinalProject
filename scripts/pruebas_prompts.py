@@ -158,7 +158,7 @@ Molecule:
    SMILES: {smiles}
    Adduct: {adduct_norm} ({info['effect']})
 
-End your answer with the line "Final CCS: <number>".
+You MUST end your answer with the line "Final CCS: <number>", do not leave the number blank.
 <think>
 Let me apply the 4 steps to estimate the CCS.
 
@@ -205,7 +205,7 @@ Molecule:
   SMILES: {smiles}
   Adduct: {adduct_norm} ({info['effect']})
 
-End your answer with the line "Final CCS: <number>".
+You MUST end your answer with the line "Final CCS: <number>", do not leave the number blank.
 <think>
 Let me apply the 4 steps to estimate the CCS.
 
@@ -213,14 +213,14 @@ Step 1 (structure): """
     return prompt
 
 # Iteración 3: Monta un prompt usando ejemplos de una base de datos y la información del compuesto a analizar
-def construir_prompt_ejemplos(smiles, adduct, datos_train, n):
+def construir_prompt_ejemplos(smiles, adduct, DATOS_TRAIN, n):
     adduct_norm = normalizar_aducto(adduct)
     info = ADDUCT_INFO.get(adduct_norm, {
         'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'
     })
 
     # Seleccionar N moléculas estructuralmente similares del dataset
-    ejemplos = seleccionar_ejemplos(datos_train, smiles, adduct, n)
+    ejemplos = seleccionar_ejemplos(DATOS_TRAIN, smiles, adduct, n)
 
     # Construir bloque de ejemplos (mismo formato que el target: SMILES + Adduct + CCS)
     ejemplos_texto = ""
@@ -251,7 +251,7 @@ Molecule:
    SMILES: {smiles}
    Adduct: {adduct_norm} ({info['effect']})
 
-End your answer with the line "Final CCS: <number>".
+You MUST end your answer with the line "Final CCS: <number>", do not leave the number blank.
 <think>
 Let me apply the 5 steps to estimate the CCS.
 
@@ -259,14 +259,14 @@ Step 1 (size): """
     return prompt
 
 # Iteración 4: Monta un prompt usando conocimiento experto, ejemplos de una base de datos y la información del compuesto a analizar
-def construir_prompt_completo(smiles, adduct, datos_train, n):
+def construir_prompt_completo(smiles, adduct, DATOS_TRAIN, n):
     adduct_norm = normalizar_aducto(adduct)
     info = ADDUCT_INFO.get(adduct_norm, {
         'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'
     })
 
     # Seleccionar N moléculas estructuralmente similares del dataset
-    ejemplos = seleccionar_ejemplos(datos_train, smiles, adduct, n)
+    ejemplos = seleccionar_ejemplos(DATOS_TRAIN, smiles, adduct, n)
 
     # Construir bloque de ejemplos (mismo formato que el target: SMILES + Adduct + CCS)
     ejemplos_texto = ""
@@ -323,7 +323,7 @@ Molecule:
    SMILES: {smiles}
    Adduct: {adduct_norm} ({info['effect']})
 
-End your answer with the line "Final CCS: <number>".
+You MUST end your answer with the line "Final CCS: <number>", do not leave the number blank.
 <think>
 Let me apply the 5 steps to estimate the CCS.
 
@@ -578,21 +578,9 @@ def actualizar_celda_excel(filepath, fila_idx, col_idx, valor):
 
 
 def test_prompts():
+
     global MODEL, TOKENIZER, DATOS_TRAIN, STATS
 
-    # Ejemplos de la tabla
-    test_cases = [
-        {"smiles": "O=C([C@@H](NS(=O)(=O)c1ccc(cc1)Cl)Cc1c[nH]c2c1cccc2)NC1CCCC1", "adduct": "[M+H]+"},
-        {"smiles": "COc1cccc(c1)[C@@H]1N(Cc2ccc(cc2)F)C(=O)c2c([C@@H]1C(=O)O)cccc2", "adduct": "[M+H]+"},
-        {"smiles": "OC(=O)/C=C/c1ccc(cc1)OC(F)(F)F", "adduct": "[M-H]-"},
-        {"smiles": "O=C1N[C@@H]2[C@H](N1)[C@@H](SC2)CCCCC(=O)N1CCC(CC1)C(=O)Nc1ccc2c(c1)OCO2", "adduct": "[M-H]-"},
-        {"smiles": "Clc1ccc(cc1)c1occ(n1)CSc1nnnn1CCc1cccs1", "adduct": "[M+Na]+"},
-        {"smiles": "N#CC1(CCCC1)NC(=O)CSc1ccc(cn1)S(=O)(=O)N1CCCCC1", "adduct": "[M+Na]+"},
-        {"smiles": "Oc1cccc(c1)I", "adduct": "[M-H]-"},
-        {"smiles": "CCOc1cc2CC(Oc2cc1NC(=O)CN1C(=O)CCOc2c1cccc2)C", "adduct": "[M+H]+"},
-        {"smiles": "Cc1ccc(cc1)n1nnnc1SCC(=O)N1CCCC1", "adduct": "[M+Na]+"},
-        {"smiles": "COc1ccc2c(c1)CCCC12NC(=O)N(C1=O)CN1CCN(CC1)c1ccccc1", "adduct": "[M-H]-"},
-    ]
     # 210 test cases extracted from train.csv
     # Total: 210 compounds ([M+H]: 3+67=70, [M-H]: 4+66=70, [M+Na]: 3+67=70)
     test_cases = [
@@ -643,7 +631,10 @@ def test_prompts():
         {"smiles": "O=C(Nc1c(C)cccc1C)CN1CCN(CC1)C(=O)Cc1ccccc1", "adduct": "[M+H]+"},
         {"smiles": "Cn1ccnc1Sc1ccc(cc1)NS(=O)(=O)c1ccccc1C(F)(F)F", "adduct": "[M+H]+"},
         {"smiles": "O=C(c1cncn1c1ccccc1)N1CCCC(C1)c1nc2c(s1)cccc2", "adduct": "[M+H]+"},
+
+        # COMPROBAR 47: SIGUE DANDO ERROR COMPROBAR O AJUSTAR PROMPT
         {"smiles": "CCCn1c(NC(=O)c2ccccc2SCc2c(C)onc2C)nc2c1cccc2", "adduct": "[M+H]+"},
+
         {"smiles": "COc1cccc(c1)C(N1CCCC1)CNC(=O)c1ccc(cc1)Br", "adduct": "[M+H]+"},
         {"smiles": "CCn1c(SCC(=O)N2CCN(CC2)c2ncccn2)nnc1C1CC1", "adduct": "[M+H]+"},
         {"smiles": "Clc1ccccc1c1nc2ccccc2c(c1)C(=O)OCc1c(C)noc1C", "adduct": "[M+H]+"},
@@ -666,6 +657,7 @@ def test_prompts():
         {"smiles": "Cc1ccc(cc1C(=O)N1CCCC(C1)c1nc2c(s1)cccc2)S(=O)(=O)N1CCCC1", "adduct": "[M+H]+"},
         {"smiles": "O=C(Nc1ccccc1C(=O)Nc1ccccc1)CNC(c1cccs1)c1ccccc1", "adduct": "[M+H]+"},
         {"smiles": "O=C1CCc2c(N1)ccc(c2)S(=O)(=O)NCC(c1ccccc1)(c1ccccc1)C", "adduct": "[M+H]+"},
+
         {"smiles": "COc1ccc(cc1C1CCCN1C(=O)CN(CC(=O)Nc1c(C)cc(cc1C)C)C)OC", "adduct": "[M+H]+"},
         {"smiles": "CC1CCCCN1S(=O)(=O)c1ccc(cc1)C(=O)OCc1noc(c1)c1ccco1", "adduct": "[M+H]+"},
         {"smiles": "COc1cc(cc(c1OCc1ccccc1)OC)C(=O)N1CCN(CC1c1ccccc1)C", "adduct": "[M+H]+"},
@@ -849,7 +841,10 @@ def test_prompts():
         for j, (nombre, fn_prompt) in enumerate(prompts_func.items()):
             prompt = fn_prompt(smiles, adduct)
             print(f"Prompt {nombre}: ")
-            resultado = predecir_ccs(MODEL, TOKENIZER, prompt, STATS, seleccionar_ejemplos(DATOS_TRAIN, smiles, adduct, n=5))
+
+            ejemplos = seleccionar_ejemplos(DATOS_TRAIN, smiles, adduct, n=5)
+            resultado = predecir_ccs(MODEL, TOKENIZER, prompt, STATS, ejemplos)
+
             fallback_str = " [FALLBACK]" if resultado["fallback"] else ""
             print(f" - CCS = {resultado['predicted_ccs']:.2f} Å²{fallback_str}")
             print(f" - Reasoning: {resultado['reasoning'][:80]}")
