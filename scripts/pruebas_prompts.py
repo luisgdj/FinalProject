@@ -438,7 +438,7 @@ def predecir_ccs(model, tokenizer, prompt, stats, ejemplos):
             temperature = None,           # 1.5B -> None  ; 7B/14B -> 0.3 # Bajo para mantener precisión
             top_p = None,                 # 1.5B -> None  ; 7B/14B -> 0.9
             repetition_penalty = 1.15,   # 1.5B -> None  ; 7B/14B -> 1.15 # Penaliza repeticiones
-            max_new_tokens = 5000, # más margen para el bloque <reasoning>
+            max_new_tokens = 10000, # más margen para el bloque <reasoning>
             pad_token_id = tokenizer.eos_token_id,
             # use_cache = False # False -> Evita corrupción del cache
         )
