@@ -773,7 +773,10 @@ def test_prompts():
         {"smiles": "CCCC1(NC(=O)N(C1=O)CC(=O)NC(c1ccc2c(c1)OCCO2)C)c1ccccc1", "adduct": "[M+Na]+"},
         {"smiles": "O=C(c1ccc(cc1)S(=O)(=O)N(C)C)NCCCn1ccc2c1cccc2", "adduct": "[M+Na]+"},
         {"smiles": "C=CCn1c(SC(C(=O)Nc2ccc3c(c2)OCO3)C)nc2c(c1=O)c(C)c(s2)C", "adduct": "[M+Na]+"},
+
+        # Compuesto 184
         {"smiles": "O=C(Nc1ccc2c(c1)CCN2C(=O)C)COc1ccccc1c1ccccc1", "adduct": "[M+Na]+"},
+
         {"smiles": "O=C(C(Sc1nnc(n1c1ccccc1)c1ccco1)C)N1CCc2c(C1)cccc2", "adduct": "[M+Na]+"},
         {"smiles": "O=C(N(C1CCCc2c1cccc2)C)CSc1nnc(n1Cc1ccccc1)C1CC1", "adduct": "[M+Na]+"},
         {"smiles": "O=C(CN1CC(Oc2c1cccc2)C(=O)N1CCOCC1)NC(=O)NC1CCCC1", "adduct": "[M+Na]+"},
@@ -818,7 +821,7 @@ def test_prompts():
     inicializar_excel(excel_path, variantes)
 
     print("=" * 70)
-    print(f"TEST DE PROMPTS\nInicio de prueba: {datetime.now()})")
+    print(f"TEST DE PROMPTS\nInicio de prueba: {datetime.now()}")
 
     for i, caso in enumerate(test_cases, 1):
         smiles, adduct = caso["smiles"], caso["adduct"]
@@ -841,6 +844,7 @@ def test_prompts():
         for j, (nombre, fn_prompt) in enumerate(prompts_func.items()):
             prompt = fn_prompt(smiles, adduct)
             print(f"Prompt {nombre}: ")
+            print(f" - Hora de ejecución: {datetime.now().strftime('%H:%M:%S')}")
 
             ejemplos = seleccionar_ejemplos(DATOS_TRAIN, smiles, adduct, n=5)
             resultado = predecir_ccs(MODEL, TOKENIZER, prompt, STATS, ejemplos)

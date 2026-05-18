@@ -73,6 +73,7 @@
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\raw" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\results\primer-test-200" />
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\scripts\old" />
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\results\few-test" />
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject" />
@@ -367,7 +368,15 @@
       <option name="project" value="LOCAL" />
       <updated>1778155181477</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary=".">
+      <option name="closed" value="true" />
+      <created>1778492490763</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1778492490763</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
