@@ -3,586 +3,858 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCS Predictor - DeepSeek AI</title>
+    <title>CCS Predictor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --bg:        #0d1117;
+            --surface:   #161b22;
+            --surface2:  #1c2330;
+            --border:    #30363d;
+            --green:     #3fb950;
+            --green-dim: #1a4a1f;
+            --green-glow:rgba(63,185,80,0.15);
+            --text:      #e6edf3;
+            --text-muted:#7d8590;
+            --text-dim:  #484f58;
+            --amber:     #d29922;
+            --blue:      #58a6ff;
+            --red:       #f85149;
+            --radius:    10px;
         }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #c8e6ce;
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
-            padding: 20px;
+            padding: 32px 20px 60px;
+            /* subtle grid texture */
+            background-image:
+                linear-gradient(rgba(63,185,80,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(63,185,80,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
         }
 
-        .container {
-            max-width: 1500px;
-            margin: 0 auto;
-        }
-
+        /* ── HEADER ── */
         .header {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto 40px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 14px; }
+
+        .logo-mark {
+            width: 44px; height: 44px;
+            border: 2px solid var(--green);
+            border-radius: 8px;
+            display: grid; place-items: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 1em;
+            color: var(--green);
+            background: var(--green-dim);
+            letter-spacing: -1px;
         }
 
         .header h1 {
-            color: #333;
-            font-size: 2.5em;
-            margin-bottom: 10px;
+            font-family: 'Space Mono', monospace;
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.5px;
         }
 
-        .header p {
-            color: #666;
-            font-size: 1.1em;
+        .header h1 span { color: var(--green); }
+
+        .header-meta {
+            font-size: 0.78em;
+            color: var(--text-muted);
+            font-family: 'Space Mono', monospace;
+            text-align: right;
+            line-height: 1.6;
         }
 
-        .main-content {
+        .status-dot {
+            display: inline-block;
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.3; }
+        }
+
+        /* ── LAYOUT ── */
+        .layout {
+            max-width: 900px;
+            margin: 0 auto;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
+            gap: 20px;
         }
 
+        @media (max-width: 700px) {
+            .layout { grid-template-columns: 1fr; }
+            .header-meta { text-align: left; }
+        }
+
+        /* ── CARD ── */
         .card {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            position: relative;
+            overflow: hidden;
         }
 
-        .card h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.5em;
-            border-bottom: 3px solid #3B5C3F;
-            padding-bottom: 10px;
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--green), transparent);
         }
 
-        .form-group {
-            margin-bottom: 20px;
+        .card-title {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.72em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
+
+        .card-title::before {
+            content: '';
+            width: 3px; height: 14px;
+            background: var(--green);
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        /* ── FORM ── */
+        .form-group { margin-bottom: 20px; }
 
         label {
             display: block;
+            font-size: 0.8em;
             font-weight: 600;
-            color: #444;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
             margin-bottom: 8px;
-            font-size: 0.95em;
         }
 
-        input[type="text"],
-        input[type="number"],
-        select {
+        input[type="text"], select {
             width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1em;
-            transition: all 0.3s;
+            padding: 11px 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            color: var(--text);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85em;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            -webkit-appearance: none;
         }
 
-        input:focus,
-        select:focus {
+        input[type="text"]:focus, select:focus {
             outline: none;
-            border-color: #3B5C3F;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: var(--green);
+            box-shadow: 0 0 0 3px var(--green-glow);
         }
 
-        .btn {
-            width: 100%;
-            padding: 15px;
-            background: #648f69;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1em;
-            font-weight: 600;
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237d8590' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 34px;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-top: 10px;
         }
 
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        select option { background: var(--surface2); }
+
+        .smiles-hint {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.72em;
+            color: var(--text-dim);
+            margin-top: 6px;
         }
 
-        .btn:active {
-            transform: translateY(0);
+        .examples {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
         }
 
-        .btn:disabled {
-            opacity: 0.6;
+        .example-chip {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7em;
+            padding: 4px 10px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text-muted);
+            cursor: pointer;
+            background: transparent;
+            transition: all 0.15s;
+        }
+
+        .example-chip:hover {
+            border-color: var(--green);
+            color: var(--green);
+            background: var(--green-dim);
+        }
+
+        /* ── BUTTON ── */
+        .btn-predict {
+            width: 100%;
+            padding: 13px;
+            background: var(--green);
+            color: #0d1117;
+            border: none;
+            border-radius: 7px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9em;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s;
+            margin-top: 6px;
+        }
+
+        .btn-predict:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-predict:active:not(:disabled) { transform: translateY(0); }
+
+        .btn-predict:disabled {
+            opacity: 0.4;
             cursor: not-allowed;
-            transform: none;
         }
 
-        .results {
+        /* ── INFO BOX ── */
+        .info-box {
+            margin-top: 20px;
+            padding: 14px 16px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+        }
+
+        .info-box-title {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7em;
+            font-weight: 700;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 10px;
+        }
+
+        .info-box ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .info-box li {
+            font-size: 0.8em;
+            color: var(--text-muted);
+            padding-left: 14px;
+            position: relative;
+        }
+
+        .info-box li::before {
+            content: '›';
+            position: absolute;
+            left: 0;
+            color: var(--green);
+        }
+
+        /* ── ERROR ── */
+        .error-msg {
             display: none;
+            padding: 12px 14px;
+            background: rgba(248,81,73,0.1);
+            border: 1px solid rgba(248,81,73,0.3);
+            border-radius: 7px;
+            color: var(--red);
+            font-size: 0.85em;
+            margin-bottom: 18px;
         }
 
+        .error-msg.show { display: block; }
+
+        /* ── LOADING ── */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .loading.show { display: block; }
+
+        .loading-ring {
+            width: 48px; height: 48px;
+            border: 3px solid var(--surface2);
+            border-top-color: var(--green);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading p {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75em;
+            color: var(--text-muted);
+            animation: blink 1.4s ease-in-out infinite;
+        }
+
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        /* ── RESULTS ── */
+        .results { display: none; }
         .results.show {
             display: block;
-            animation: fadeIn 0.5s;
+            animation: fadeUp 0.4s ease both;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
 
-        .result-main {
-            background: #648f69;
-            color: white;
-            padding: 25px;
-            border-radius: 12px;
-            margin-bottom: 20px;
+        /* CCS display */
+        .ccs-display {
+            background: var(--surface2);
+            border: 1px solid var(--green);
+            border-radius: 8px;
+            padding: 24px;
             text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
         }
 
-        .result-main h3 {
-            font-size: 1.2em;
+        .ccs-display::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, var(--green-glow) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .ccs-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.68em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .ccs-number {
+            font-family: 'Space Mono', monospace;
+            font-size: 3.2em;
+            font-weight: 700;
+            color: var(--green);
+            line-height: 1;
+            letter-spacing: -2px;
+        }
+
+        .ccs-unit {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.78em;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        /* badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7em;
+            font-weight: 700;
+        }
+
+        .badge-green  { background: var(--green-dim);           color: var(--green); border: 1px solid var(--green); }
+        .badge-amber  { background: rgba(210,153,34,0.12);      color: var(--amber); border: 1px solid var(--amber); }
+        .badge-blue   { background: rgba(88,166,255,0.1);       color: var(--blue);  border: 1px solid var(--blue); }
+
+        /* detail rows */
+        .detail-block {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+        }
+
+        .detail-block-title {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-dim);
             margin-bottom: 10px;
-            opacity: 0.9;
-        }
-
-        .result-main .ccs-value {
-            font-size: 3em;
-            font-weight: bold;
-            margin: 10px 0;
-        }
-
-        .result-main .ccs-unit {
-            font-size: 1.2em;
-            opacity: 0.9;
-        }
-
-        .result-details {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-
-        .result-details h4 {
-            color: #3B5C3F;
-            margin-bottom: 15px;
-            font-size: 1.1em;
         }
 
         .detail-row {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #e0e0e0;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.82em;
         }
 
-        .detail-row:last-child {
-            border-bottom: none;
+        .detail-row:last-child { border-bottom: none; }
+        .detail-key   { color: var(--text-muted); }
+        .detail-val   { color: var(--text); font-weight: 600; font-family: 'Space Mono', monospace; font-size: 0.9em; }
+
+        /* features grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
         }
 
-        .detail-label {
-            color: #666;
-            font-weight: 500;
+        .feature-cell {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
 
-        .detail-value {
-            color: #444;
-            font-weight: 600;
+        .feature-key {
+            font-size: 0.65em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
         }
 
-        .badge {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-        }
-
-        .badge-success {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .badge-warning {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .badge-info {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .similar-compounds {
-            margin-top: 20px;
-        }
-
-        .compound-item {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            border-left: 4px solid #3B5C3F;
-        }
-
-        .compound-item code {
-            background: #f7fcf8;
-            padding: 2px 6px;
-            border-radius: 4px;
+        .feature-val {
+            font-family: 'Space Mono', monospace;
             font-size: 0.9em;
-            color: #3B5C3F;
+            color: var(--green);
+            font-weight: 700;
         }
 
-        .loading {
-            display: none;
+        /* reasoning */
+        .reasoning-text {
+            font-size: 0.82em;
+            color: var(--text-muted);
+            line-height: 1.7;
+            font-style: italic;
+        }
+
+        /* similar compounds */
+        .compound-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--green);
+        }
+
+        .compound-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .compound-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65em;
+            font-weight: 700;
+            color: var(--green);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .compound-ccs {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85em;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .compound-smiles {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7em;
+            color: var(--text-dim);
+            word-break: break-all;
+            line-height: 1.4;
+        }
+
+        /* range footer */
+        .range-footer {
             text-align: center;
-            padding: 20px;
+            margin-top: 16px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.68em;
+            color: var(--text-dim);
         }
 
-        .loading.show {
-            display: block;
+        .range-bar {
+            height: 4px;
+            background: var(--surface2);
+            border-radius: 2px;
+            margin: 8px 0 4px;
+            position: relative;
+            overflow: visible;
         }
 
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3B5C3F;
+        .range-bar-fill {
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            background: linear-gradient(90deg, var(--green-dim), var(--green));
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.8s cubic-bezier(0.25,1,0.5,1);
+        }
+
+        .range-bar-marker {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px; height: 10px;
+            background: var(--green);
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
+            box-shadow: 0 0 8px var(--green);
+            transition: left 0.8s cubic-bezier(0.25,1,0.5,1);
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .error {
-            display: none;
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #dc3545;
-            margin-bottom: 20px;
-        }
-
-        .error.show {
-            display: block;
-        }
-
-        .info-box {
-            background: #f8f9fa;
-            border-left: 4px solid #3B5C3F;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-
-        .info-box h4 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .info-box ul {
-            margin-left: 20px;
-            color: #555;
-        }
-
-        .info-box li {
-            margin-bottom: 5px;
-        }
-
-        .example-link {
-            color: #3B5C3F;
-            text-decoration: none;
-            font-weight: 500;
-            cursor: pointer;
-        }
-
-        .example-link:hover {
-            text-decoration: underline;
-        }
-
-        @media (max-width: 968px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: var(--text-dim);
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>CCS Predictor</h1>
-            <p>Collision Cross Section prediction using DeepSeek AI and chemical similarity</p>
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-left">
+            <div class="logo-mark">CCS</div>
+            <div>
+                <h1>CCS<span>Predictor</span></h1>
+            </div>
+        </div>
+        <div class="header-meta">
+            <div><span class="status-dot"></span>DeepSeek-R1 · 1.5B</div>
+            <div>49,483 experimental measurements</div>
+        </div>
+    </div>
+
+    <!-- LAYOUT -->
+    <div class="layout">
+
+        <!-- LEFT: INPUT -->
+        <div class="card">
+            <div class="card-title">Input</div>
+
+            <div class="error-msg" id="errorMessage"></div>
+
+            <form id="predictionForm">
+                <div class="form-group">
+                    <label for="smiles">SMILES notation</label>
+                    <input
+                        type="text"
+                        id="smiles"
+                        name="smiles"
+                        placeholder="CC(C)Cc1ccc(cc1)C(C)C(=O)O"
+                        required
+                        autocomplete="off"
+                        spellcheck="false"
+                    >
+                    <div class="smiles-hint">Simplified Molecular-Input Line-Entry System</div>
+                    <div class="examples">
+                        <button type="button" class="example-chip" onclick="loadExample1()">Ibuprofen</button>
+                        <button type="button" class="example-chip" onclick="loadExample2()">Indole derivative</button>
+                        <button type="button" class="example-chip" onclick="loadExample3()">Caffeine</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="adduct">Adduct type</label>
+                    <select id="adduct" name="adduct">
+                        <option value="[M+H]+">[M+H]+  — protonated</option>
+                        <option value="[M-H]-">[M-H]−  — deprotonated</option>
+                        <option value="[M+Na]+">[M+Na]+ — sodium adduct</option>
+                        <option value="[M+K]+">[M+K]+  — potassium adduct</option>
+                        <option value="[M+NH4]+">[M+NH4]+ — ammonium adduct</option>
+                        <option value="[M-H2O+H]+">[M-H₂O+H]+ — water loss</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-predict" id="predictBtn">
+                    ▶ &nbsp;Run prediction
+                </button>
+            </form>
+
+            <div class="info-box">
+                <div class="info-box-title">How it works</div>
+                <ul>
+                    <li>Extracts structural descriptors from SMILES</li>
+                    <li>Retrieves the 5 most similar compounds from the training set</li>
+                    <li>DeepSeek-R1 reasons from analogues to predict CCS</li>
+                    <li>Result is validated against plausible CCS ranges</li>
+                </ul>
+            </div>
         </div>
 
-        <div class="main-content">
-            <!-- Input Form -->
-            <div class="card">
-                <h2>Input Parameters</h2>
+        <!-- RIGHT: RESULTS -->
+        <div class="card">
+            <div class="card-title">Results</div>
 
-                <div class="error" id="errorMessage"></div>
+            <!-- Loading -->
+            <div class="loading" id="loading">
+                <div class="loading-ring"></div>
+                <p>Analyzing structure and running inference…</p>
+            </div>
 
-                <form id="predictionForm">
-                    <div class="form-group">
-                        <label for="smiles">SMILES *</label>
-                        <input
-                            type="text"
-                            id="smiles"
-                            name="smiles"
-                            placeholder="e.g., CC(C)Cc1ccc(cc1)C(C)C(=O)O"
-                            required
-                        >
-                        <small style="color: #666; font-size: 0.85em; display: block; margin-top: 5px;">
-                            <a href="#" class="example-link" onclick="loadExample1(); return false;">Example 1</a> |
-                            <a href="#" class="example-link" onclick="loadExample2(); return false;">Example 2</a>
-                        </small>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="mz">m/z (Mass-to-charge ratio) *</label>
-                        <input
-                            type="number"
-                            id="mz"
-                            name="mz"
-                            step="0.0001"
-                            placeholder="e.g., 438.1812"
-                            required
-                        >
-                    </div>
-
-                    <div class="form-group">
-                        <label for="adduct">Adduct Type</label>
-                        <select id="adduct" name="adduct">
-                            <option value="[M+H]+">[M+H]+</option>
-                            <option value="[M-H]-">[M-H]-</option>
-                            <option value="[M+Na]+">[M+Na]+</option>
-                            <option value="[M+K]+">[M+K]+</option>
-                            <option value="[M+NH4]+">[M+NH4]+</option>
-                            <option value="[M-H2O+H]+">[M-H2O+H]+</option>
-                        </select>
-                    </div>
-
-                    <button type="submit" class="btn" id="predictBtn">
-                        Predict CCS
-                    </button>
-                </form>
-
-                <div class="info-box">
-                    <h4>How the model works</h4>
-                    <ul>
-                        <li>Analyzes molecular structure from SMILES</li>
-                        <li>Takes into account its m/z and adduct type</li>
-                        <li>Finds similar compounds in the training dataset</li>
-                        <li>Uses AI to predict CCS based on chemical features</li>
-                        <li>Dataset contains 49,483 experimental measurements</li>
-                    </ul>
+            <!-- Empty state -->
+            <div id="emptyState" style="padding: 40px 0; text-align:center;">
+                <div style="font-size:2em; margin-bottom:12px; opacity:0.2;">⬡</div>
+                <div style="font-family:'Space Mono',monospace; font-size:0.75em; color:var(--text-dim);">
+                    Enter a SMILES and run prediction
                 </div>
             </div>
 
             <!-- Results -->
-            <div class="card">
-                <h2>Prediction Results</h2>
+            <div class="results" id="results">
 
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <p>Analyzing molecular structure and predicting CCS...</p>
+                <!-- CCS value -->
+                <div class="ccs-display">
+                    <div class="ccs-label">Predicted CCS</div>
+                    <div class="ccs-number" id="ccsValue">—</div>
+                    <div class="ccs-unit">Ų (Angstrom squared)</div>
                 </div>
 
-                <div class="results" id="results">
-                    <div class="result-main">
-                        <h3>Predicted CCS Value</h3>
-                        <div class="ccs-value" id="ccsValue">--</div>
-                        <div class="ccs-unit">Ų (Angstrom²)</div>
+                <!-- Range bar -->
+                <div class="detail-block" style="margin-bottom:12px;">
+                    <div class="detail-block-title">Position in dataset range (122 – 278 Ų)</div>
+                    <div class="range-bar">
+                        <div class="range-bar-fill" id="rangeBarFill"></div>
+                        <div class="range-bar-marker" id="rangeBarMarker" style="left:0%"></div>
                     </div>
-
-                    <div class="result-details">
-                        <h4>Prediction Details</h4>
-                        <div class="detail-row">
-                            <span class="detail-label">Shape Classification:</span>
-                            <span class="detail-value" id="shape">--</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Method:</span>
-                            <span class="detail-value" id="method">--</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Confidence:</span>
-                            <span class="detail-value" id="confidence">--</span>
-                        </div>
-                    </div>
-
-                    <div class="result-details">
-                        <h4>Molecular Features</h4>
-                        <div id="molecularFeatures"></div>
-                    </div>
-
-                    <div class="result-details">
-                        <h4>Reasoning</h4>
-                        <p id="reasoning" style="color: #555; line-height: 1.6;"></p>
-                    </div>
-
-                    <div class="similar-compounds" id="similarCompounds" style="display: none;">
-                        <h4 style="color: #444; margin-bottom: 15px;">Similar Compounds from Database</h4>
-                        <div id="compoundsList"></div>
+                    <div class="range-labels">
+                        <span>122</span>
+                        <span id="rangeLabel">—</span>
+                        <span>278</span>
                     </div>
                 </div>
 
-                <div style="text-align: center; margin-top: 20px; color: #999; font-size: 0.9em;">
-                    <p>CCS valid range: 122.3 - 277.5 Ų</p>
+                <!-- Prediction metadata -->
+                <div class="detail-block">
+                    <div class="detail-block-title">Prediction info</div>
+                    <div class="detail-row">
+                        <span class="detail-key">Method</span>
+                        <span class="detail-val" id="method">—</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-key">Confidence</span>
+                        <span class="detail-val" id="confidence">—</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-key">Adduct</span>
+                        <span class="detail-val" id="adductUsed">—</span>
+                    </div>
                 </div>
+
+                <!-- Molecular features -->
+                <div class="detail-block" id="featuresBlock" style="display:none">
+                    <div class="detail-block-title">Molecular descriptors</div>
+                    <div class="features-grid" id="featuresGrid"></div>
+                </div>
+
+                <!-- Reasoning -->
+                <div class="detail-block" id="reasoningBlock" style="display:none">
+                    <div class="detail-block-title">Model reasoning</div>
+                    <p class="reasoning-text" id="reasoning"></p>
+                </div>
+
+                <!-- Similar compounds -->
+                <div class="detail-block" id="similarBlock" style="display:none">
+                    <div class="detail-block-title">Reference analogues</div>
+                    <div id="compoundsList"></div>
+                </div>
+
+                <div class="range-footer">Valid CCS range: 122.3 – 277.5 Ų</div>
             </div>
         </div>
     </div>
 
     <script>
-        // Example molecules
+        /* ── Examples ── */
         function loadExample1() {
-            document.getElementById('smiles').value = 'N#Cc1ccccc1c1ccc(cc1)COC(=O)[C@H](Cc1c[nH]c2c1cccc2)NC(=O)C';
-            document.getElementById('mz').value = '438.1812';
-            document.getElementById('adduct').value = '[M+H]+';
-        }
-
-        function loadExample2() {
             document.getElementById('smiles').value = 'CC(C)Cc1ccc(cc1)C(C)C(=O)O';
-            document.getElementById('mz').value = '206.1307';
+            document.getElementById('adduct').value = '[M+H]+';
+        }
+        function loadExample2() {
+            document.getElementById('smiles').value = 'N#Cc1ccccc1c1ccc(cc1)COC(=O)[C@H](Cc1c[nH]c2c1cccc2)NC(=O)C';
+            document.getElementById('adduct').value = '[M+H]+';
+        }
+        function loadExample3() {
+            document.getElementById('smiles').value = 'Cn1cnc2c1c(=O)n(c(=O)n2C)C';
             document.getElementById('adduct').value = '[M+H]+';
         }
 
-        // Form submission
+        /* ── Form submit ── */
         document.getElementById('predictionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const btn = document.getElementById('predictBtn');
-            const loading = document.getElementById('loading');
-            const results = document.getElementById('results');
+            const btn      = document.getElementById('predictBtn');
+            const loading  = document.getElementById('loading');
+            const results  = document.getElementById('results');
+            const empty    = document.getElementById('emptyState');
             const errorDiv = document.getElementById('errorMessage');
 
-            // Hide previous results/errors
             results.classList.remove('show');
             errorDiv.classList.remove('show');
-
-            // Show loading
+            empty.style.display = 'none';
             loading.classList.add('show');
             btn.disabled = true;
 
-            const formData = {
-                smiles: document.getElementById('smiles').value.trim(),
-                mz: parseFloat(document.getElementById('mz').value),
-                adduct: document.getElementById('adduct').value
+            const payload = {
+                smiles:  document.getElementById('smiles').value.trim(),
+                adduct:  document.getElementById('adduct').value
             };
 
             try {
-                const response = await fetch('/predict', {
+                const res  = await fetch('/predict', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(formData)
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
-
-                const data = await response.json();
+                const data = await res.json();
 
                 if (data.success) {
-                    displayResults(data);
+                    displayResults(data, payload.adduct);
                 } else {
                     throw new Error(data.error || 'Prediction failed');
                 }
-
-            } catch (error) {
-                errorDiv.textContent = '❌ Error: ' + error.message;
+            } catch (err) {
+                errorDiv.textContent = '✕  ' + err.message;
                 errorDiv.classList.add('show');
+                empty.style.display = 'block';
             } finally {
                 loading.classList.remove('show');
                 btn.disabled = false;
             }
         });
 
-        function displayResults(data) {
-            const results = document.getElementById('results');
+        /* ── Display results ── */
+        function displayResults(data, adduct) {
+            const ccs = data.predicted_ccs;
 
-            // Main CCS value
-            document.getElementById('ccsValue').textContent = data.predicted_ccs.toFixed(2);
+            /* CCS number */
+            document.getElementById('ccsValue').textContent = ccs.toFixed(2);
 
-            // Shape
-            document.getElementById('shape').textContent = data.shape || 'Unknown';
+            /* Range bar */
+            const MIN = 122.3, MAX = 277.5;
+            const pct = Math.min(100, Math.max(0, (ccs - MIN) / (MAX - MIN) * 100));
+            document.getElementById('rangeBarFill').style.width   = pct + '%';
+            document.getElementById('rangeBarMarker').style.left  = pct + '%';
+            document.getElementById('rangeLabel').textContent     = ccs.toFixed(1) + ' Ų';
 
-            // Method
-            const methodBadge = data.from_dataset
-                ? '<span class="badge badge-success">Exact Match</span>'
-                : data.fallback
-                    ? '<span class="badge badge-warning">Heuristic</span>'
-                    : '<span class="badge badge-info">AI Prediction</span>';
-            document.getElementById('method').innerHTML = methodBadge;
-
-            // Confidence
-            const confidence = data.from_dataset ? 'High (Database)' :
-                              data.fallback ? 'Low (Fallback)' : 'Medium (AI)';
-            document.getElementById('confidence').textContent = confidence;
-
-            // Molecular features
-            if (data.molecular_features) {
-                const features = data.molecular_features;
-                const featuresHTML = `
-                    <div class="detail-row">
-                        <span class="detail-label">Rings:</span>
-                        <span class="detail-value">${features.num_rings}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Branches:</span>
-                        <span class="detail-value">${features.num_branches}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Aromatic atoms:</span>
-                        <span class="detail-value">${features.aromatic_atoms}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">N atoms:</span>
-                        <span class="detail-value">${features.num_N}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">O atoms:</span>
-                        <span class="detail-value">${features.num_O}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Net charge:</span>
-                        <span class="detail-value">${features.net_charge}</span>
-                    </div>
-                `;
-                document.getElementById('molecularFeatures').innerHTML = featuresHTML;
+            /* Method badge */
+            let methodHTML, conf;
+            if (data.from_dataset) {
+                methodHTML = '<span class="badge badge-green">Exact match</span>';
+                conf = 'High — database entry';
+            } else if (data.fallback) {
+                methodHTML = '<span class="badge badge-amber">Heuristic</span>';
+                conf = 'Low — fallback estimate';
+            } else {
+                methodHTML = '<span class="badge badge-blue">AI inference</span>';
+                conf = 'Medium — model prediction';
             }
+            document.getElementById('method').innerHTML     = methodHTML;
+            document.getElementById('confidence').textContent = conf;
+            document.getElementById('adductUsed').textContent = adduct;
 
-            // Reasoning
-            document.getElementById('reasoning').textContent = data.reasoning || 'N/A';
-
-            // Similar compounds
-            if (data.similar_compounds && data.similar_compounds.length > 0) {
-                const compoundsHTML = data.similar_compounds.map((c, i) => `
-                    <div class="compound-item">
-                        <strong>Reference ${i + 1}</strong><br>
-                        <small> - SMILES:</small><code>${c.smiles}</code><br>
-                        <small> - m/z: ${c.mz.toFixed(4)}</small><br>
-                        <small> - CCS: ${c.ccs.toFixed(2)} Ų</small>
+            /* Molecular features */
+            if (data.molecular_features) {
+                const f = data.molecular_features;
+                const pairs = [
+                    ['Rings',         f.num_rings],
+                    ['Branches',      f.num_branches],
+                    ['Aromatic atoms',f.aromatic_atoms],
+                    ['N atoms',       f.num_N],
+                    ['O atoms',       f.num_O],
+                    ['S atoms',       f.num_S],
+                    ['Double bonds',  f.double_bonds],
+                    ['Net charge',    f.net_charge],
+                ];
+                document.getElementById('featuresGrid').innerHTML = pairs.map(([k, v]) => `
+                    <div class="feature-cell">
+                        <div class="feature-key">${k}</div>
+                        <div class="feature-val">${v}</div>
                     </div>
                 `).join('');
-
-                document.getElementById('compoundsList').innerHTML = compoundsHTML;
-                document.getElementById('similarCompounds').style.display = 'block';
+                document.getElementById('featuresBlock').style.display = 'block';
             }
 
-            // Show results with animation
-            results.classList.add('show');
-            results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            /* Reasoning */
+            if (data.reasoning) {
+                document.getElementById('reasoning').textContent = data.reasoning;
+                document.getElementById('reasoningBlock').style.display = 'block';
+            }
+
+            /* Similar compounds */
+            if (data.similar_compounds && data.similar_compounds.length > 0) {
+                document.getElementById('compoundsList').innerHTML = data.similar_compounds.map((c, i) => `
+                    <div class="compound-card">
+                        <div class="compound-header">
+                            <span class="compound-label">Ref ${i + 1}</span>
+                            <span class="compound-ccs">${c.ccs.toFixed(2)} Ų</span>
+                        </div>
+                        <div class="compound-smiles">${c.smiles}</div>
+                    </div>
+                `).join('');
+                document.getElementById('similarBlock').style.display = 'block';
+            }
+
+            /* Show */
+            document.getElementById('results').classList.add('show');
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     </script>
 </body>

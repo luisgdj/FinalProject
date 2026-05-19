@@ -36,20 +36,6 @@ def extraer_caracteristicas(smiles):
     }
 
 
-def calcular_correlacion(x, y):
-    n = len(x)
-    if n == 0:
-        return 0.0
-    mean_x = sum(x) / n
-    mean_y = sum(y) / n
-    num = sum((x[i] - mean_x) * (y[i] - mean_y) for i in range(n))
-    den_x = sum((x[i] - mean_x) ** 2 for i in range(n))
-    den_y = sum((y[i] - mean_y) ** 2 for i in range(n))
-    if den_x == 0 or den_y == 0:
-        return 0.0
-    return num / ((den_x * den_y) ** 0.5)
-
-
 def calcular_std(values):
     n = len(values)
     if n < 2:
@@ -340,10 +326,9 @@ def parsear_respuesta(respuesta_raw):
     # Quitamos artefactos LaTeX comunes: $...$, $$...$$, \[ \], \( \)
     texto = re.sub(r'\$+', '', texto)
     texto = re.sub(r'\\[\[\]\(\)]', '', texto)
-    # Normalizamos espacios
-    texto = texto.strip()
+    texto = texto.strip() # Normalizamos espacios
 
-    # Comprobación: ¿el razonamiento se cerró?
+    # Comprobación del bloque <think>
     if '<think>' in texto and '</think>' not in texto:
         return {'predicted_ccs': None, 'fallback': True, 'source': 'think_unclosed'}
     if '</think>' not in texto:
@@ -352,56 +337,38 @@ def parsear_respuesta(respuesta_raw):
     # A partir de aquí trabajamos SOLO con la zona post-think
     texto_post = texto.split('</think>')[-1].strip()
 
-    # ESTRATEGIA 1: Patrón explícito "Final CCS: <número>"
-    # Acepta variantes: "Final CCS:", "Final CCS =", "**Final CCS:**" (ya limpiado),
-    # con o sin "Å²" detrás, y permite que el número venga dentro de \boxed{}
+    def aceptar(valor, source):
+        if 50 <= valor <= 500: # rango razonable para CCS
+            return {'predicted_ccs': round(valor, 2), 'fallback': False, 'source': source}
+        return None
+
+    NUM = r'([0-9]+(?:\.[0-9]+)?)'
+
+    # ESTRATEGIA 1: "Final CCS: <número>" en variantes (con/sin \boxed{})
     patrones_final = [
-        # "Final CCS: \boxed{195}" o "Final CCS: 195"
-        r'Final\s+CCS\s*[:=]?\s*\\?boxed\{?\s*([0-9]+(?:\.[0-9]+)?)\s*\}?',
-        # "Final CCS: 195" o "Final CCS = 195.5"
-        r'Final\s+CCS\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)',
-        # "Final CCS 195" (sin separador)
-        r'Final\s+CCS\s+([0-9]+(?:\.[0-9]+)?)',
+        rf'Final\s+CCS\s*[:=]?\s*\\?boxed\{{?\s*{NUM}\s*\}}?', # "Final CCS: \boxed{200}" o "Final CCS: 200"
+        rf'Final\s+CCS\s*[:=]\s*{NUM}', # "Final CCS: 200" o "Final CCS = 200"
+        rf'Final\s+CCS\s+([0-9]+{NUM}' # "Final CCS 200" (sin separador)
     ]
     for patron in patrones_final:
         match = re.search(patron, texto_post, re.IGNORECASE)
         if match:
             valor = float(match.group(1))
-            if 50 <= valor <= 500:  # rango razonable para CCS
-                return {
-                    'predicted_ccs': round(valor, 2),
-                    'fallback': False,
-                    'source': 'final_ccs_tag',
-                }
+            result = aceptar(valor, 'final_ccs_tag')
+            if result:
+                return result
 
-    # ESTRATEGIA 2: Patrón \boxed{<número>} (sin "Final CCS:" delante)
-    # DeepSeek-R1 a veces solo usa \boxed{195} como respuesta final
-    match = re.search(r'\\?boxed\{?\s*([0-9]+(?:\.[0-9]+)?)\s*\}?', texto_post)
+    # ESTRATEGIA 2: \boxed{<número>} sin "Final CCS:" delante
+    match = re.search(rf'\\?boxed\{{?\s*{NUM}\s*\}}?', texto_post)
     if match:
         valor = float(match.group(1))
-        if 50 <= valor <= 500:
-            return {
-                'predicted_ccs': round(valor, 2),
-                'fallback': False,
-                'source': 'boxed_tag',
-            }
+        result = aceptar(valor, 'boxed_tag')
+        if result:
+            return result
 
-    # ESTRATEGIA 3: Número inmediatamente después de </think>
-    # Por si el modelo no usa el formato "Final CCS:" pero da un número limpio
-    match = re.match(r'^([0-9]+(?:\.[0-9]+)?)', texto_post)
-    if match:
-        valor = float(match.group(1))
-        if 50 <= valor <= 500:
-            return {
-                'predicted_ccs': round(valor, 2),
-                'fallback': False,
-                'source': 'post_think_first',
-            }
-
-    # ESTRATEGIA 4: Último número plausible en la zona post-think
-    # Como último recurso, el último número en rango CCS razonable
+    # ESTRATEGIA 3: último número plausible en el rango CCS
     matches = re.findall(r'\b([0-9]{2,3}(?:\.[0-9]+)?)\b', texto_post)
-    plausibles = [float(m) for m in matches if 100 <= float(m) <= 400]
+    plausibles = [float(m) for m in matches if 50 <= float(m) <= 500]
     if plausibles:
         return {
             'predicted_ccs': round(plausibles[-1], 2),
@@ -409,7 +376,6 @@ def parsear_respuesta(respuesta_raw):
             'source': 'last_plausible',
         }
 
-    # Sin número válido
     return {'predicted_ccs': None, 'fallback': True, 'source': 'no_number_found'}
 
 # Clasifica si la predicción es válida o es un valor degenerado.
@@ -439,8 +405,7 @@ def predecir_ccs(model, tokenizer, prompt, stats, ejemplos):
             top_p = None,                 # 1.5B -> None  ; 7B/14B -> 0.9
             repetition_penalty = 1.15,   # 1.5B -> None  ; 7B/14B -> 1.15 # Penaliza repeticiones
             max_new_tokens = 10000, # más margen para el bloque <reasoning>
-            pad_token_id = tokenizer.eos_token_id,
-            # use_cache = False # False -> Evita corrupción del cache
+            pad_token_id = tokenizer.eos_token_id
         )
 
     n_tokens_prompt = inputs['input_ids'].shape[1]
