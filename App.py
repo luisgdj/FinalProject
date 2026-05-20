@@ -33,15 +33,6 @@ def extraer_caracteristicas(smiles):
     }
 
 
-def calcular_std(values):
-    n = len(values)
-    if n < 2:
-        return 0.0
-    mean = sum(values) / n
-    variance = sum((x - mean) ** 2 for x in values) / (n - 1)
-    return variance ** 0.5
-
-
 def leer_csv(filepath):
     datos = []
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -63,8 +54,7 @@ def analizar_datos(datos):
     stats = {
         'ccs_min': min(ccs_values),
         'ccs_max': max(ccs_values),
-        'ccs_avg': sum(ccs_values) / len(ccs_values),
-        'ccs_std': calcular_std(ccs_values),
+        'ccs_avg': sum(ccs_values) / len(ccs_values)
     }
     return stats
 
@@ -76,11 +66,13 @@ def normalizar_aducto(adduct):
 # Selecciona N moléculas del dataset estructuralmente similares al input.
 def seleccionar_ejemplos(datos, smiles_input, adduct_input, n):
 
+    # Paso 1: Calcula los descriptores del compuesto de entrada.
     caract_input = extraer_caracteristicas(smiles_input)
     adduct_norm = normalizar_aducto(adduct_input)
 
-    # Filtrar por mismo aducto (los CCS dependen del aducto)
+    # Paso 2: Filtra el training set por aducto.
     datos_filtrados = [d for d in datos if normalizar_aducto(d['adduct']) == adduct_norm]
+    # Excepción: Si no tienes suficientes ejemplos del mismo aducto, se usa el dataset completo.
     if len(datos_filtrados) < n:
         print(f"Aviso: solo {len(datos_filtrados)} ejemplos para aducto {adduct_norm}, usando dataset completo")
         datos_filtrados = datos
@@ -89,15 +81,19 @@ def seleccionar_ejemplos(datos, smiles_input, adduct_input, n):
     for d in datos_filtrados:
         caract = extraer_caracteristicas(d['smiles'])
 
-        # Tres criterios de similitud estructural (todos en rango 0-1)
+        # Paso 3: Calcula una puntuación de similitud para cada descritor estructural.
+        #  - Para cada molécula del conjunto filtrado
+        #  - Compara los descriptores de la molecula con los del compuesto de entrada
+        #  - Calcula una puntuación de 0 a 1
         sim_longitud   = 1 / (1 + abs(caract['length']    - caract_input['length']) / 10)
         sim_anillos    = 1 / (1 + abs(caract['num_rings'] - caract_input['num_rings']))
         sim_aromatico  = 1 / (1 + abs(caract['aromatic_atoms'] - caract_input['aromatic_atoms']) / 3)
 
-        # Pesos: estructura > longitud > aromaticidad
+        # Paso 4: Combina las tres puntuaciones con pesos (estructura > longitud > aromaticidad).
         similitud = 0.50 * sim_anillos + 0.30 * sim_longitud + 0.20 * sim_aromatico
         similitudes.append((similitud, d))
 
+    # Paso 5: Ordena por puntuación y devuelve los 'n' mejores.
     similitudes.sort(reverse=True, key=lambda x: x[0])
     return [d for _, d in similitudes[:n]]
 
@@ -113,8 +109,8 @@ def buscar_en_dataset(smiles, adduct, dataset):
 ADDUCT_INFO = {
     '[M+H]':     {'charge': 1,  'mass_add': 1.007,  'effect': 'protonated, baseline reference'},
     '[M+Na]':    {'charge': 1,  'mass_add': 22.989, 'effect': 'sodium adduct, ~3-5 Å² larger than [M+H]+'},
-    '[M+K]':     {'charge': 1,  'mass_add': 38.963, 'effect': 'potassium adduct, ~5-8 Å² larger than [M+H]+'},
     '[M-H]':     {'charge': -1, 'mass_add': -1.007, 'effect': 'deprotonated, ~2-5 Å² smaller than [M+H]+'},
+    '[M+K]':     {'charge': 1, 'mass_add': 38.963, 'effect': 'potassium adduct, ~5-8 Å² larger than [M+H]+'},
     '[M+NH4]':   {'charge': 1,  'mass_add': 18.034, 'effect': 'ammonium adduct, ~5-10 Å² larger than [M+H]+'},
     '[M+2H]2':   {'charge': 2,  'mass_add': 2.014,  'effect': 'doubly charged, ~30-40% smaller CCS (compact)'},
     '[M+FA-H]':  {'charge': -1, 'mass_add': 44.998, 'effect': 'formate adduct (negative mode), ~5-10 Å² larger than [M-H]-'},

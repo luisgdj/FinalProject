@@ -17,14 +17,6 @@ DATOS_TRAIN = None
 STATS = None
 
 
-def calcular_std(values):
-    n = len(values)
-    if n < 2:
-        return 0.0
-    mean = sum(values) / n
-    variance = sum((x - mean) ** 2 for x in values) / (n - 1)
-    return variance ** 0.5
-
 def leer_csv(filepath):
     datos = []
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -46,8 +38,7 @@ def analizar_datos(datos):
     stats = {
         'ccs_min': min(ccs_values),
         'ccs_max': max(ccs_values),
-        'ccs_avg': sum(ccs_values) / len(ccs_values),
-        'ccs_std': calcular_std(ccs_values),
+        'ccs_avg': sum(ccs_values) / len(ccs_values)
     }
     return stats
 
