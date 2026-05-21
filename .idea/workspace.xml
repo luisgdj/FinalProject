@@ -7,7 +7,6 @@
     <list default="true" id="69983a37-6f4a-4135-9702-6779ab41cf33" name="Changes" comment=".">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/App.py" beforeDir="false" afterPath="$PROJECT_DIR$/App.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/pruebas_eficiencia.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/pruebas_eficiencia.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/pruebas_prompts.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/pruebas_prompts.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -403,7 +402,15 @@
       <option name="project" value="LOCAL" />
       <updated>1779219425842</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary=".">
+      <option name="closed" value="true" />
+      <created>1779279015761</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1779279015761</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
