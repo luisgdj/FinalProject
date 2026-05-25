@@ -262,7 +262,10 @@ def clasificar_prediccion(ccs_pred, ejemplos, stats):
 
     return 'interpolated', True
 
-
+# SI VUELVO A EJECUTAR LAS PRUEBAS CAMBIAR:
+#  - top_p = 0.95 (recomendado oficial)
+#  - max_new_tokens = 20000 (tengo dos fallbacks con el modelo 1.5B)
+#  - Investigar sobre el valor de la temperatura y entender porque he puesto 0.3 en vez de un valor dentro del rando 0.5-0.7 recomendado
 def predecir_ccs(model, tokenizer, prompt, stats, ejemplos):
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=5000)
