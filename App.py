@@ -110,11 +110,6 @@ ADDUCT_INFO = {
     '[M+H]':     {'charge': 1,  'mass_add': 1.007,  'effect': 'protonated, baseline reference'},
     '[M+Na]':    {'charge': 1,  'mass_add': 22.989, 'effect': 'sodium adduct, ~3-5 Å² larger than [M+H]+'},
     '[M-H]':     {'charge': -1, 'mass_add': -1.007, 'effect': 'deprotonated, ~2-5 Å² smaller than [M+H]+'},
-    '[M+K]':     {'charge': 1,  'mass_add': 38.963, 'effect': 'potassium adduct, ~5-8 Å² larger than [M+H]+'},
-    '[M+NH4]':   {'charge': 1,  'mass_add': 18.034, 'effect': 'ammonium adduct, ~5-10 Å² larger than [M+H]+'},
-    '[M+2H]2':   {'charge': 2,  'mass_add': 2.014,  'effect': 'doubly charged, ~30-40% smaller CCS (compact)'},
-    '[M+FA-H]':  {'charge': -1, 'mass_add': 44.998, 'effect': 'formate adduct (negative mode), ~5-10 Å² larger than [M-H]-'},
-    '[M+Hac-H]': {'charge': -1, 'mass_add': 59.013, 'effect': 'acetate adduct (negative mode), ~7-12 Å² larger than [M-H]-'},
 }
 
 # Monta un prompt usando conocimiento experto, ejemplos de una base de datos y la información del compuesto a analizar
@@ -262,10 +257,7 @@ def clasificar_prediccion(ccs_pred, ejemplos, stats):
 
     return 'interpolated', True
 
-# SI VUELVO A EJECUTAR LAS PRUEBAS CAMBIAR:
-#  - top_p = 0.95 (recomendado oficial)
-#  - max_new_tokens = 20000 (tengo dos fallbacks con el modelo 1.5B)
-#  - Investigar sobre el valor de la temperatura y entender porque he puesto 0.3 en vez de un valor dentro del rando 0.5-0.7 recomendado
+
 def predecir_ccs(model, tokenizer, prompt, stats, ejemplos):
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=5000)
@@ -423,7 +415,7 @@ def inicializar_app():
     print("=" * 70)
 
     # Cargar datos
-    csv_path = r"data/processed/train.csv"
+    csv_path = r"data/processed/other/train.csv"
     if not os.path.exists(csv_path):
         print(f"AVISO: Archivo {csv_path} no encontrado")
         print("Por favor, asegúrate de que train.csv está en la ruta correcta")

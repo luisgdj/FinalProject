@@ -9,7 +9,11 @@ print(f"Dataset original: {len(df)} filas")
 
 # Eliminar filas con valores nulos en columnas clave
 df = df.dropna(subset=['smiles', 'InChIKEY', 'CCS_AVG', 'Adduct'])
-print(f"Después de limpiar: {len(df)} filas\n")
+print(f"Después de limpiar: {len(df)} filas")
+
+# Eliminar dímeros
+df = df[df['Dimer.1'] == 'Monomer']
+print(f"Después de eliminar dímeros: {len(df)} filas\n")
 
 # Obtener moléculas únicas (por InChIKEY)
 unique_molecules = df['InChIKEY'].unique()

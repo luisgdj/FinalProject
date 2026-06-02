@@ -152,7 +152,10 @@ def clasificar_prediccion(ccs_pred, stats):
 
     return 'interpolated', True
 
-
+# SI VUELVO A EJECUTAR LAS PRUEBAS CAMBIAR:
+#  - top_p = 0.95 (recomendado oficial)
+#  - max_new_tokens = 20000 (tengo dos fallbacks con el modelo 1.5B)
+#  - Investigar sobre el valor de la temperatura y entender porque he puesto 0.3 en vez de un valor dentro del rando 0.5-0.7 recomendado
 def predecir_ccs(model, tokenizer, prompt, stats):
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=5000)
@@ -247,7 +250,7 @@ def inicializar_app():
     print("=" * 70)
 
     # Cargar datos
-    csv_path = r"../data/processed/train.csv"
+    csv_path = r"../data/processed/other/train.csv"
     if not os.path.exists(csv_path):
         print(f"AVISO: Archivo {csv_path} no encontrado")
         print("Por favor, asegúrate de que train.csv está en la ruta correcta")

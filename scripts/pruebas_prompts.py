@@ -113,11 +113,6 @@ ADDUCT_INFO = {
     '[M+H]':     {'charge': 1,  'mass_add': 1.007,  'effect': 'protonated, baseline reference'},
     '[M+Na]':    {'charge': 1,  'mass_add': 22.989, 'effect': 'sodium adduct, ~3-5 Å² larger than [M+H]+'},
     '[M-H]':     {'charge': -1, 'mass_add': -1.007, 'effect': 'deprotonated, ~2-5 Å² smaller than [M+H]+'},
-    '[M+K]':     {'charge': 1,  'mass_add': 38.963, 'effect': 'potassium adduct, ~5-8 Å² larger than [M+H]+'},
-    '[M+NH4]':   {'charge': 1,  'mass_add': 18.034, 'effect': 'ammonium adduct, ~5-10 Å² larger than [M+H]+'},
-    '[M+2H]2':   {'charge': 2,  'mass_add': 2.014,  'effect': 'doubly charged, ~30-40% smaller CCS (compact)'},
-    '[M+FA-H]':  {'charge': -1, 'mass_add': 44.998, 'effect': 'formate adduct (negative mode), ~5-10 Å² larger than [M-H]-'},
-    '[M+Hac-H]': {'charge': -1, 'mass_add': 59.013, 'effect': 'acetate adduct (negative mode), ~7-12 Å² larger than [M-H]-'},
 }
 
 # Iteración 1: Monta un prompt simple solo usando la información del compuesto a analizar
@@ -483,7 +478,7 @@ def inicializar_app():
     print("=" * 70)
 
     # Cargar datos
-    csv_path = r"../data/processed/train.csv"
+    csv_path = r"../data/processed/other/train.csv"
     if not os.path.exists(csv_path):
         print(f"AVISO: Archivo {csv_path} no encontrado")
         print("Por favor, asegúrate de que train.csv está en la ruta correcta")
