@@ -113,7 +113,7 @@ def parsear_respuesta(respuesta_raw):
     patrones_final = [
         rf'Final\s+CCS\s*[:=]?\s*\\?boxed\{{?\s*{NUM}\s*\}}?', # "Final CCS: \boxed{200}" o "Final CCS: 200"
         rf'Final\s+CCS\s*[:=]\s*{NUM}', # "Final CCS: 200" o "Final CCS = 200"
-        rf'Final\s+CCS\s+([0-9]+{NUM}' # "Final CCS 200" (sin separador)
+        rf'Final\s+CCS\s+{NUM}' # "Final CCS 200" (sin separador)
     ]
     for patron in patrones_final:
         match = re.search(patron, texto_post, re.IGNORECASE)
