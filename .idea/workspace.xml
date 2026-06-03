@@ -6,7 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="69983a37-6f4a-4135-9702-6779ab41cf33" name="Changes" comment=".">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/App.py" beforeDir="false" afterPath="$PROJECT_DIR$/App.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/pruebas_prompts.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/pruebas_prompts.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,6 +53,7 @@
     &quot;Python.d.executor&quot;: &quot;Run&quot;,
     &quot;Python.download_models.executor&quot;: &quot;Run&quot;,
     &quot;Python.explore_dataset.executor&quot;: &quot;Run&quot;,
+    &quot;Python.fix (1).executor&quot;: &quot;Run&quot;,
     &quot;Python.fix.executor&quot;: &quot;Run&quot;,
     &quot;Python.pruebas_eficiencia.executor&quot;: &quot;Run&quot;,
     &quot;Python.pruebas_eficiencia_2.executor&quot;: &quot;Run&quot;,
@@ -62,28 +63,28 @@
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Usuario/OneDrive/Desktop/TFG/FinalProject/data/results/test-completo-2models&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Usuario/OneDrive/Desktop/TFG/FinalProject/data/processed&quot;,
     &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\processed" />
+      <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\processed\other" />
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\results\test-completo-2models" />
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\scripts" />
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject" />
-      <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\processed" />
-      <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\raw" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\processed" />
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\processed\other" />
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\templates\Old" />
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\results\primer-test-200" />
       <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\scripts\old" />
-      <recent name="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\results\few-test" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.fix">
+  <component name="RunManager" selected="Python.fix (1)">
     <configuration name="App" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="FinalProject" />
       <option name="ENV_FILES" value="" />
@@ -128,7 +129,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="fix" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="fix (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="FinalProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -150,7 +151,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="pruebas_prompts" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="fix" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="FinalProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -159,11 +160,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/scripts" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/data/processed" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/scripts/pruebas_prompts.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\Usuario\OneDrive\Desktop\TFG\FinalProject\data\processed\fix.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -196,11 +197,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.fix (1)" />
         <item itemvalue="Python.fix" />
         <item itemvalue="Python.App" />
         <item itemvalue="Python.split_dataset" />
         <item itemvalue="Python.d" />
-        <item itemvalue="Python.pruebas_prompts" />
       </list>
     </recent_temporary>
   </component>
@@ -459,7 +460,23 @@
       <option name="project" value="LOCAL" />
       <updated>1780501857086</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary=".">
+      <option name="closed" value="true" />
+      <created>1780502175259</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1780502175259</updated>
+    </task>
+    <task id="LOCAL-00032" summary=".">
+      <option name="closed" value="true" />
+      <created>1780505544263</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1780505544263</updated>
+    </task>
+    <option name="localTasksCounter" value="33" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
