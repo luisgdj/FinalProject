@@ -13,10 +13,10 @@ app = Flask(__name__)
 
 MODEL = None
 TOKENIZER = None
-DATOS_TRAIN = None
+TRAIN_DATA = None
 STATS = None
 
-def extraer_caracteristicas(smiles):
+def extract_features(smiles):
     return {
         "length": len(smiles),
         "num_rings": sum(c.isdigit() for c in smiles),
@@ -36,24 +36,24 @@ def extraer_caracteristicas(smiles):
     }
 
 
-def leer_csv(filepath):
-    datos = []
+def read_csv(filepath):
+    data = []
     with open(filepath, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
             try:
-                datos.append({
+                data.append({
                     'smiles': row['smiles'].strip(),
                     'adduct': row['Adduct'].strip(),
                     'ccs': float(row['CCS_AVG'])
                 })
             except (ValueError, KeyError):
                 continue
-    return datos
+    return data
 
 
-def analizar_datos(datos):
-    ccs_values = [d['ccs'] for d in datos]
+def analyze_data(data):
+    ccs_values = [d['ccs'] for d in data]
     stats = {
         'ccs_min': min(ccs_values),
         'ccs_max': max(ccs_values),
@@ -62,49 +62,49 @@ def analizar_datos(datos):
     return stats
 
 
-def normalizar_aducto(adduct):
-    # Elimina la carga final del aducto para unificar formatos.
+def normalize_adduct(adduct):
+    # Strips the trailing charge character to unify adduct formats.
     return adduct.rstrip('+-').strip()
 
-# Selecciona N moléculas del dataset estructuralmente similares al input.
-def seleccionar_ejemplos(datos, smiles_input, adduct_input, n):
+# Selects N structurally similar molecules from the dataset for the given input.
+def select_examples(data, input_smiles, input_adduct, n):
 
-    # Paso 1: Calcula los descriptores del compuesto de entrada.
-    caract_input = extraer_caracteristicas(smiles_input)
-    adduct_norm = normalizar_aducto(adduct_input)
+    # Step 1: Compute descriptors for the input compound.
+    input_features = extract_features(input_smiles)
+    adduct_norm = normalize_adduct(input_adduct)
 
-    # Paso 2: Filtra el training set por aducto.
-    datos_filtrados = [d for d in datos if normalizar_aducto(d['adduct']) == adduct_norm]
-    # Excepción: Si no tienes suficientes ejemplos del mismo aducto, se usa el dataset completo.
-    if len(datos_filtrados) < n:
-        print(f"Aviso: solo {len(datos_filtrados)} ejemplos para aducto {adduct_norm}, usando dataset completo")
-        datos_filtrados = datos
+    # Step 2: Filter the training set by adduct.
+    filtered_data = [d for d in data if normalize_adduct(d['adduct']) == adduct_norm]
+    # Fallback: if not enough examples for the same adduct, use the full dataset.
+    if len(filtered_data) < n:
+        print(f"Warning: only {len(filtered_data)} examples for adduct {adduct_norm}, using full dataset")
+        filtered_data = data
 
-    similitudes = []
-    for d in datos_filtrados:
-        caract = extraer_caracteristicas(d['smiles'])
+    similarities = []
+    for d in filtered_data:
+        features = extract_features(d['smiles'])
 
-        # Paso 3: Calcula una puntuación de similitud para cada descritor estructural.
-        #  - Para cada molécula del conjunto filtrado
-        #  - Compara los descriptores de la molecula con los del compuesto de entrada
-        #  - Calcula una puntuación de 0 a 1
-        sim_longitud   = 1 / (1 + abs(caract['length']    - caract_input['length']) / 10)
-        sim_anillos    = 1 / (1 + abs(caract['num_rings'] - caract_input['num_rings']))
-        sim_aromatico  = 1 / (1 + abs(caract['aromatic_atoms'] - caract_input['aromatic_atoms']) / 3)
+        # Step 3: Compute a similarity score for each structural descriptor.
+        #  - For each molecule in the filtered set
+        #  - Compare its descriptors against those of the input compound
+        #  - Produce a score between 0 and 1
+        sim_length    = 1 / (1 + abs(features['length']        - input_features['length']) / 10)
+        sim_rings     = 1 / (1 + abs(features['num_rings']     - input_features['num_rings']))
+        sim_aromatic  = 1 / (1 + abs(features['aromatic_atoms']- input_features['aromatic_atoms']) / 3)
 
-        # Paso 4: Combina las tres puntuaciones con pesos (estructura > longitud > aromaticidad).
-        similitud = 0.50 * sim_anillos + 0.30 * sim_longitud + 0.20 * sim_aromatico
-        similitudes.append((similitud, d))
+        # Step 4: Combine the three scores with weights (structure > length > aromaticity).
+        similarity = 0.50 * sim_rings + 0.30 * sim_length + 0.20 * sim_aromatic
+        similarities.append((similarity, d))
 
-    # Paso 5: Ordena por puntuación y devuelve los 'n' mejores.
-    similitudes.sort(reverse=True, key=lambda x: x[0])
-    return [d for _, d in similitudes[:n]]
+    # Step 5: Sort by score and return the top n.
+    similarities.sort(reverse=True, key=lambda x: x[0])
+    return [d for _, d in similarities[:n]]
 
 
-def buscar_en_dataset(smiles, adduct, dataset):
-    adduct_norm = normalizar_aducto(adduct)
+def search_dataset(smiles, adduct, dataset):
+    adduct_norm = normalize_adduct(adduct)
     for row in dataset:
-        if row["smiles"] == smiles and normalizar_aducto(row["Adduct"]) == adduct_norm:
+        if row["smiles"] == smiles and normalize_adduct(row["Adduct"]) == adduct_norm:
             return row["ccs"]
     return None
 
@@ -115,9 +115,9 @@ ADDUCT_INFO = {
     '[M-H]':     {'charge': -1, 'mass_add': -1.007, 'effect': 'deprotonated, ~2-5 Å² smaller than [M+H]+'},
 }
 
-# Iteración 1: Monta un prompt simple solo usando la información del compuesto a analizar
-def construir_prompt_simple(smiles, adduct):
-    adduct_norm = normalizar_aducto(adduct)
+# Iteration 1: Builds a simple prompt using only the target compound information.
+def build_prompt_simple(smiles, adduct):
+    adduct_norm = normalize_adduct(adduct)
     info = ADDUCT_INFO.get(adduct_norm, {
         'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'
     })
@@ -142,9 +142,9 @@ Let me apply the 4 steps to estimate the CCS.
 Step 1 (size): """
     return prompt
 
-# Iteración 2: Monta un prompt usando conocimiento experto de metabolómica y la información del compuesto a analizar
-def construir_prompt_ce(smiles, adduct):
-    adduct_norm = normalizar_aducto(adduct)
+# Iteration 2: Builds a prompt using expert metabolomics knowledge and the target compound information.
+def build_prompt_expert(smiles, adduct):
+    adduct_norm = normalize_adduct(adduct)
     info = ADDUCT_INFO.get(adduct_norm, {
         'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'
     })
@@ -189,25 +189,25 @@ Let me apply the 4 steps to estimate the CCS.
 Step 1 (structure): """
     return prompt
 
-# Iteración 3: Monta un prompt usando ejemplos de una base de datos y la información del compuesto a analizar
-def construir_prompt_ejemplos(smiles, adduct, DATOS_TRAIN, n):
-    adduct_norm = normalizar_aducto(adduct)
+# Iteration 3: Builds a prompt using database examples and the target compound information.
+def build_prompt_examples(smiles, adduct, TRAIN_DATA, n):
+    adduct_norm = normalize_adduct(adduct)
     info = ADDUCT_INFO.get(adduct_norm, {
         'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'
     })
 
-    # Seleccionar N moléculas estructuralmente similares del dataset
-    ejemplos = seleccionar_ejemplos(DATOS_TRAIN, smiles, adduct, n)
+    # Select N structurally similar molecules from the dataset
+    examples = select_examples(TRAIN_DATA, smiles, adduct, n)
 
-    # Construir bloque de ejemplos (mismo formato que el target: SMILES + Adduct + CCS)
-    ejemplos_texto = ""
-    for i, ej in enumerate(ejemplos, 1):
-        ej_adduct_norm = normalizar_aducto(ej['adduct'])
-        ejemplos_texto += (
+    # Build the examples block (same format as the target: SMILES + Adduct + CCS)
+    examples_text = ""
+    for i, ex in enumerate(examples, 1):
+        ex_adduct_norm = normalize_adduct(ex['adduct'])
+        examples_text += (
             f"  Example {i}:\n"
-            f"    SMILES: {ej['smiles']}\n"
-            f"    Adduct: {ej_adduct_norm}\n"
-            f"    CCS: {ej['ccs']:.2f} Å²\n\n"
+            f"    SMILES: {ex['smiles']}\n"
+            f"    Adduct: {ex_adduct_norm}\n"
+            f"    CCS: {ex['ccs']:.2f} Å²\n\n"
         )
 
     prompt = f"""You are an expert in ion mobility mass spectrometry.
@@ -217,7 +217,7 @@ Below are {n} reference molecules with experimentally measured CCS values, selec
 
 Reference molecules:
 
-{ejemplos_texto}To estimate CCS, follow these steps:
+{examples_text}To estimate CCS, follow these steps:
   1. Read the SMILES and identify rings, chains, branches, and functional groups.
   2. Decide if the structure is compact (mostly fused rings, rigid) or extended (chains, flexible).
   3. Compare with the reference molecules above. Identify the most similar ones and use their CCS values as anchors.
@@ -235,25 +235,25 @@ Let me apply the 5 steps to estimate the CCS.
 Step 1 (size): """
     return prompt
 
-# Iteración 4: Monta un prompt usando conocimiento experto, ejemplos de una base de datos y la información del compuesto a analizar
-def construir_prompt_completo(smiles, adduct, DATOS_TRAIN, n):
-    adduct_norm = normalizar_aducto(adduct)
+# Iteration 4: Builds a prompt using expert knowledge, database examples, and the target compound information.
+def build_prompt_combined(smiles, adduct, TRAIN_DATA, n):
+    adduct_norm = normalize_adduct(adduct)
     info = ADDUCT_INFO.get(adduct_norm, {
         'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'
     })
 
-    # Seleccionar N moléculas estructuralmente similares del dataset
-    ejemplos = seleccionar_ejemplos(DATOS_TRAIN, smiles, adduct, n)
+    # Select N structurally similar molecules from the dataset
+    examples = select_examples(TRAIN_DATA, smiles, adduct, n)
 
-    # Construir bloque de ejemplos (mismo formato que el target: SMILES + Adduct + CCS)
-    ejemplos_texto = ""
-    for i, ej in enumerate(ejemplos, 1):
-        ej_adduct_norm = normalizar_aducto(ej['adduct'])
-        ejemplos_texto += (
+    # Build the examples block (same format as the target: SMILES + Adduct + CCS)
+    examples_text = ""
+    for i, ex in enumerate(examples, 1):
+        ex_adduct_norm = normalize_adduct(ex['adduct'])
+        examples_text += (
             f"  Example {i}:\n"
-            f"    SMILES: {ej['smiles']}\n"
-            f"    Adduct: {ej_adduct_norm}\n"
-            f"    CCS: {ej['ccs']:.2f} Å²\n\n"
+            f"    SMILES: {ex['smiles']}\n"
+            f"    Adduct: {ex_adduct_norm}\n"
+            f"    CCS: {ex['ccs']:.2f} Å²\n\n"
         )
 
     prompt = f"""You are an expert in ion mobility mass spectrometry.
@@ -289,7 +289,7 @@ Below are {n} reference molecules with experimentally measured CCS values, selec
 
 Reference molecules:
 
-{ejemplos_texto}To estimate CCS, follow these steps:
+{examples_text}To estimate CCS, follow these steps:
   1. Read the SMILES and identify rings, chains, branches, and functional groups.
   2. Decide if the structure is compact (mostly fused rings, rigid) or extended (chains, flexible).
   3. Compare with the reference molecules above. Identify the most similar ones and use their CCS values as anchors.
@@ -308,145 +308,144 @@ Step 1 (size): """
     return prompt
 
 
-# Extrae el CCS predicho de la respuesta del modelo
-def parsear_respuesta(respuesta_raw):
+# Extracts the predicted CCS from the model's raw response.
+def parse_response(raw_response):
 
-    # Limpieza inicial
-    # Quitamos markdown bold/italic que ensucia las regex
-    texto = respuesta_raw.replace('**', '').replace('*', '')
-    # Quitamos artefactos LaTeX comunes: $...$, $$...$$, \[ \], \( \)
-    texto = re.sub(r'\$+', '', texto)
-    texto = re.sub(r'\\[\[\]\(\)]', '', texto)
-    texto = texto.strip() # Normalizamos espacios
+    # Initial cleanup
+    # Remove markdown bold/italic that interferes with regex
+    text = raw_response.replace('**', '').replace('*', '')
+    # Remove common LaTeX artifacts: $...$, $$...$$, \[ \], \( \)
+    text = re.sub(r'\$+', '', text)
+    text = re.sub(r'\\[\[\]\(\)]', '', text)
+    text = text.strip()
 
-    # Comprobación del bloque <think>
-    if '<think>' in texto and '</think>' not in texto:
+    # Check the <think> block
+    if '<think>' in text and '</think>' not in text:
         return {'predicted_ccs': None, 'fallback': True, 'source': 'think_unclosed'}
-    if '</think>' not in texto:
+    if '</think>' not in text:
         return {'predicted_ccs': None, 'fallback': True, 'source': 'no_think_tag'}
 
-    # A partir de aquí trabajamos SOLO con la zona post-think
-    texto_post = texto.split('</think>')[-1].strip()
+    # From here on, work only with the post-think section
+    post_text = text.split('</think>')[-1].strip()
 
-    def aceptar(valor, source):
-        if 50 <= valor <= 500: # rango razonable para CCS
-            return {'predicted_ccs': round(valor, 2), 'fallback': False, 'source': source}
+    def accept(value, source):
+        if 50 <= value <= 500:  # reasonable CCS range
+            return {'predicted_ccs': round(value, 2), 'fallback': False, 'source': source}
         return None
 
     NUM = r'([0-9]+(?:\.[0-9]+)?)'
 
-    # ESTRATEGIA 1: "Final CCS: <número>" en variantes (con/sin \boxed{})
-    patrones_final = [
-        rf'Final\s+CCS\s*[:=]?\s*\\?boxed\{{?\s*{NUM}\s*\}}?', # "Final CCS: \boxed{200}" o "Final CCS: 200"
-        rf'Final\s+CCS\s*[:=]\s*{NUM}', # "Final CCS: 200" o "Final CCS = 200"
-        rf'Final\s+CCS\s+{NUM}' # "Final CCS 200" (sin separador)
+    # STRATEGY 1: "Final CCS: <number>" in variants (with/without \boxed{})
+    final_patterns = [
+        rf'Final\s+CCS\s*[:=]?\s*\\?boxed\{{?\s*{NUM}\s*\}}?',  # "Final CCS: \boxed{200}" or "Final CCS: 200"
+        rf'Final\s+CCS\s*[:=]\s*{NUM}',                          # "Final CCS: 200" or "Final CCS = 200"
+        rf'Final\s+CCS\s+{NUM}'                                   # "Final CCS 200" (no separator)
     ]
-    for patron in patrones_final:
-        match = re.search(patron, texto_post, re.IGNORECASE)
+    for pattern in final_patterns:
+        match = re.search(pattern, post_text, re.IGNORECASE)
         if match:
-            valor = float(match.group(1))
-            result = aceptar(valor, 'final_ccs_tag')
+            value = float(match.group(1))
+            result = accept(value, 'final_ccs_tag')
             if result:
                 return result
 
-    # ESTRATEGIA 2: \boxed{<número>} sin "Final CCS:" delante
-    match = re.search(rf'\\?boxed\{{?\s*{NUM}\s*\}}?', texto_post)
+    # STRATEGY 2: \boxed{<number>} without a preceding "Final CCS:"
+    match = re.search(rf'\\?boxed\{{?\s*{NUM}\s*\}}?', post_text)
     if match:
-        valor = float(match.group(1))
-        result = aceptar(valor, 'boxed_tag')
+        value = float(match.group(1))
+        result = accept(value, 'boxed_tag')
         if result:
             return result
 
-    # ESTRATEGIA 3: último número plausible en el rango CCS
-    matches = re.findall(r'\b([0-9]{2,3}(?:\.[0-9]+)?)\b', texto_post)
-    plausibles = [float(m) for m in matches if 50 <= float(m) <= 500]
-    if plausibles:
+    # STRATEGY 3: last plausible number in the CCS range
+    matches = re.findall(r'\b([0-9]{2,3}(?:\.[0-9]+)?)\b', post_text)
+    plausible = [float(m) for m in matches if 50 <= float(m) <= 500]
+    if plausible:
         return {
-            'predicted_ccs': round(plausibles[-1], 2),
+            'predicted_ccs': round(plausible[-1], 2),
             'fallback': False,
             'source': 'last_plausible',
         }
 
     return {'predicted_ccs': None, 'fallback': True, 'source': 'no_number_found'}
 
-# Clasifica si la predicción es válida o es un valor degenerado.
-def clasificar_prediccion(ccs_pred, ejemplos, stats):
+# Classifies whether the prediction is valid or a degenerate value.
+def classify_prediction(ccs_pred, examples, stats):
 
-    ccs_referencias = {round(ej['ccs'], 2) for ej in ejemplos}
+    reference_ccs = {round(ex['ccs'], 2) for ex in examples}
     avg = round(stats['ccs_avg'])
 
     if abs(ccs_pred - avg) <= 0.5:
         return 'dataset_avg', False
 
-    if any(abs(ccs_pred - ref) <= 0.02 for ref in ccs_referencias):
+    if any(abs(ccs_pred - ref) <= 0.02 for ref in reference_ccs):
         return 'exact_copy', False
 
     return 'interpolated', True
 
 
-def predecir_ccs(model, tokenizer, prompt, stats, ejemplos):
+def predict_ccs(model, tokenizer, prompt, stats, examples):
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=5000)
 
     with torch.inference_mode():
         outputs = model.generate(
             **inputs,
-            do_sample = False,           # 1.5B -> False ; 7B/14B -> True # True para el 7B
-            temperature = None,           # 1.5B -> None  ; 7B/14B -> 0.3 # Bajo para mantener precisión
-            top_p = None,                 # 1.5B -> None  ; 7B/14B -> 0.9
-            repetition_penalty = 1.15,   # 1.5B -> None  ; 7B/14B -> 1.15 # Penaliza repeticiones
-            max_new_tokens = 10000, # más margen para el bloque <reasoning>
+            do_sample = False,           # 1.5B -> False ; Bigger models (7B) -> True
+            temperature = None,          # 1.5B -> None  ; Bigger models (7B) -> 0.3
+            top_p = None,                # 1.5B -> None  ; Bigger models (7B) -> 0.9
+            repetition_penalty = 1.15,   # Penalizes repeated tokens to prevent looping during long reasoning traces.
+            max_new_tokens = 10000,      # Extra margin for the <think> block
             pad_token_id = tokenizer.eos_token_id
         )
 
-    n_tokens_prompt = inputs['input_ids'].shape[1]
-    n_tokens_total = outputs.shape[1]
-    n_tokens_generados = n_tokens_total - n_tokens_prompt
+    n_prompt_tokens = inputs['input_ids'].shape[1]
+    n_total_tokens = outputs.shape[1]
+    n_generated_tokens = n_total_tokens - n_prompt_tokens
 
-    print(f" - Tokens del prompt: {n_tokens_prompt}")
-    print(f" - Tokens del output total: {n_tokens_total}")
-    print(f" - Tokens generados: {n_tokens_generados}")
+    print(f" - Prompt tokens: {n_prompt_tokens}")
+    print(f" - Total output tokens: {n_total_tokens}")
+    print(f" - Generated tokens: {n_generated_tokens}")
 
-    respuesta_completa = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    prompt_texto = tokenizer.decode(inputs['input_ids'][0], skip_special_tokens=True)
-    respuesta = respuesta_completa[len(prompt_texto):].strip()
+    full_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    prompt_text = tokenizer.decode(inputs['input_ids'][0], skip_special_tokens=True)
+    response = full_response[len(prompt_text):].strip()
 
-    print(" RESPUESTA COMPLETA: " + json.dumps(respuesta_completa))
-    print(" RESPUESTA CRUDA: " + json.dumps(respuesta))
+    print(" - FULL RESPONSE: " + json.dumps(full_response))
+    print(" - RAW RESPONSE: " + json.dumps(response))
 
-    resultado = parsear_respuesta(respuesta)
+    result = parse_response(response)
 
-    # Fallback por fallo de parseo
-    if resultado['fallback']:
-        resultado['predicted_ccs'] = 0.0
-        resultado['pred_type'] = 'heuristic_fallback'
-        resultado['reasoning'] = "Heuristic fallback: parser found no valid number"
-        return resultado
+    # Fallback on parse failure
+    if result['fallback']:
+        result['predicted_ccs'] = 0.0
+        result['pred_type'] = 'heuristic_fallback'
+        result['reasoning'] = "Heuristic fallback: parser found no valid number"
+        return result
 
-    # Clasificar la predicción
-    tipo, es_valida = clasificar_prediccion(resultado['predicted_ccs'], ejemplos, stats)
-    resultado['predicted_ccs_raw'] = resultado['predicted_ccs']
-    resultado['pred_type'] = tipo
+    # Classify the prediction
+    pred_type, is_valid = classify_prediction(result['predicted_ccs'], examples, stats)
+    result['predicted_ccs_raw'] = result['predicted_ccs']
+    result['pred_type'] = pred_type
 
-    if es_valida:
-        resultado['reasoning'] = f"Model interpolation ({resultado['predicted_ccs']})"
+    if is_valid:
+        result['reasoning'] = f"Model interpolation ({result['predicted_ccs']})"
     else:
-        resultado['pred_type'] = tipo  # 'exact_copy' o 'dataset_avg', sin →heuristic
+        result['pred_type'] = pred_type  # 'exact_copy' or 'dataset_avg', no heuristic fallback
 
-        if tipo == 'exact_copy':
-            resultado['reasoning'] = f"Model output accepted (reference copy: {resultado['predicted_ccs_raw']})"
+        if pred_type == 'exact_copy':
+            result['reasoning'] = f"Model output accepted (reference copy: {result['predicted_ccs_raw']})"
         else:
-            resultado['reasoning'] = f"Model output accepted (dataset avg: {resultado['predicted_ccs_raw']})"
-        # predicted_ccs queda tal cual, sin reemplazar
+            result['reasoning'] = f"Model output accepted (dataset avg: {result['predicted_ccs_raw']})"
 
-    return resultado
+    return result
 
 
-def cargar_modelo():
+def load_model():
 
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
-    model_path = r"D:\Modelos TFG\DeepSeek-R1-Distill-Qwen-1.5B"  # Ruta local
-    print(f" - Ruta: {model_path}")
+    model_path = r"D:\Modelos TFG\DeepSeek-R1-Distill-Qwen-1.5B"  # Local path
+    print(f" - Path: {model_path}")
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
@@ -460,86 +459,85 @@ def cargar_modelo():
         low_cpu_mem_usage = True
     )
 
-    model.eval()  # Modo inferencia: desactiva dropout y gradientes
+    model.eval()  # Inference mode: disables dropout and gradients
 
     if hasattr(torch, 'compile'):
-        print(" - Compilando modelo con torch.compile...")
+        print(" - Compiling model with torch.compile...")
         model = torch.compile(model, mode="reduce-overhead")
-        print(" - Compilación completada")
+        print(" - Compilation complete")
 
     return model, tokenizer
 
 
-def inicializar_app():
-    global MODEL, TOKENIZER, DATOS_TRAIN, STATS
+def initialize_app():
+    global MODEL, TOKENIZER, TRAIN_DATA, STATS
 
     print("=" * 70)
-    print("Inicializando aplicación de predicción CCS.")
+    print("Initializing CCS prediction application.")
     print("=" * 70)
 
-    # Cargar datos
+    # Load data
     csv_path = r"../data/processed/train.csv"
     if not os.path.exists(csv_path):
-        print(f"AVISO: Archivo {csv_path} no encontrado")
-        print("Por favor, asegúrate de que train.csv está en la ruta correcta")
+        print(f"WARNING: File {csv_path} not found")
+        print("Please make sure train.csv is at the correct path")
         return False
 
-    print(f"Cargando dataset: {csv_path}")
-    DATOS_TRAIN = leer_csv(csv_path)
-    print(f" - Dataset cargado: {len(DATOS_TRAIN)} compuestos")
+    print(f"Loading dataset: {csv_path}")
+    TRAIN_DATA = read_csv(csv_path)
+    print(f" - Dataset loaded: {len(TRAIN_DATA)} compounds")
 
-    # Analizar estadísticas
-    print("Analizando estadísticas del dataset...")
-    STATS = analizar_datos(DATOS_TRAIN)
+    # Compute statistics
+    print("Analyzing dataset statistics...")
+    STATS = analyze_data(TRAIN_DATA)
     print(f" - CCS range: {STATS['ccs_min']:.1f} - {STATS['ccs_max']:.1f} Å²")
 
-    # Cargar modelo
-    print("Cargando modelo DeepSeek...")
-    MODEL, TOKENIZER = cargar_modelo()
-    print(" - Modelo cargado y listo")
-    print(" - Aplicación lista para recibir peticiones")
+    # Load model
+    print("Loading DeepSeek model...")
+    MODEL, TOKENIZER = load_model()
+    print(" - Model loaded and ready")
+    print(" - Application ready to receive requests")
     print("=" * 70)
     return True
 
 
-
 from openpyxl import Workbook, load_workbook
 
-def inicializar_excel(filepath, variantes):
-    """Crea el Excel con cabeceras si no existe."""
+def initialize_excel(filepath, variants):
+    """Creates the Excel file with headers if it does not exist."""
     if os.path.exists(filepath):
         return
     wb = Workbook()
     ws = wb.active
-    ws.title = "Predicciones CCS"
-    cabeceras = ["", "SMILES", "Aducto"]
-    cabeceras.extend(variantes)
-    ws.append(cabeceras)
+    ws.title = "CCS Predictions"
+    headers = ["", "SMILES", "Adduct"]
+    headers.extend(variants)
+    ws.append(headers)
     wb.save(filepath)
-    print(f" - Excel creado: {filepath}")
+    print(f" - Excel created: {filepath}")
 
-def guardar_fila_excel(filepath, fila):
-    """Añade una fila al Excel y guarda inmediatamente."""
+def save_row_excel(filepath, row):
+    """Appends a row to the Excel file and saves immediately."""
     wb = load_workbook(filepath)
     ws = wb.active
-    ws.append(fila)
+    ws.append(row)
     wb.save(filepath)
 
-def actualizar_celda_excel(filepath, fila_idx, col_idx, valor):
-    """Actualiza una celda concreta y guarda inmediatamente."""
+def update_cell_excel(filepath, row_idx, col_idx, value):
+    """Updates a specific cell and saves immediately."""
     wb = load_workbook(filepath)
     ws = wb.active
-    ws.cell(row=fila_idx, column=col_idx, value=valor)
+    ws.cell(row=row_idx, column=col_idx, value=value)
     wb.save(filepath)
 
 
 def test_prompts():
 
-    global MODEL, TOKENIZER, DATOS_TRAIN, STATS
+    global MODEL, TOKENIZER, TRAIN_DATA, STATS
 
     # 390 test cases extracted from test.csv
     # Total: 390 compounds ([M+H]: 66+64=130, [M-H]: 67+63=130, [M+Na]: 58+72=130)
-    # Nuevos compuestos añadidos para equilibrar el test bench (199 compuestos)
+    # New compounds added to balance the test bench (199 compounds)
     test_cases = [
         # [M+H]+ cases (+64)
         {"smiles": "COc1ccccc1N(S(=O)(=O)c1ccc(cc1)Cl)Cc1onc(n1)c1ccsc1", "adduct": "[M+H]+", "real_ccs": 199.79},
@@ -748,64 +746,64 @@ def test_prompts():
     ]
 
     prompts_func = {
-        "simple": lambda s, a: construir_prompt_simple(s, a),
-        "con conocimiento experto": lambda s, a: construir_prompt_ce(s, a),
-        "con ejemplos": lambda s, a: construir_prompt_ejemplos(s, a, DATOS_TRAIN, n=5),
-        "completo": lambda s, a: construir_prompt_completo(s, a, DATOS_TRAIN, n=5),
+        "simple": lambda s, a: build_prompt_simple(s, a),
+        "expert knowledge": lambda s, a: build_prompt_expert(s, a),
+        "examples": lambda s, a: build_prompt_examples(s, a, TRAIN_DATA, n=5),
+        "combined": lambda s, a: build_prompt_combined(s, a, TRAIN_DATA, n=5),
     }
 
-    variantes = list(prompts_func.keys())
+    variants = list(prompts_func.keys())
 
-    # Inicializar Excel con timestamp para no sobrescribir ejecuciones previas
+    # Initialize Excel with timestamp to avoid overwriting previous runs
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    excel_path = f"../data/results/predicciones_prompts_{timestamp}.xlsx"
+    excel_path = f"../data/results/prompt_predictions_{timestamp}.xlsx"
     os.makedirs(os.path.dirname(excel_path), exist_ok=True)
-    inicializar_excel(excel_path, variantes)
+    initialize_excel(excel_path, variants)
 
     print("=" * 70)
-    print(f"TEST DE PROMPTS\nInicio de prueba: {datetime.now()}")
+    print(f"PROMPT TEST\nTest start: {datetime.now()}")
 
-    for i, caso in enumerate(test_cases, 1):
-        smiles, adduct = caso["smiles"], caso["adduct"]
-        print(f"{'='*70}")
-        print(f"COMPUESTO {i} | Aducto = {adduct}")
+    for i, case in enumerate(test_cases, 1):
+        smiles, adduct = case["smiles"], case["adduct"]
+        print(f"{'=' * 70}")
+        print(f"COMPOUND {i} | Adduct = {adduct}")
         print(f"SMILES: {smiles[:60]}...")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
-        # Limpiar caché entre predicciones
-        torch.cuda.empty_cache()  # por si acaso aunque estés en CPU
+        # Clear cache between predictions
+        torch.cuda.empty_cache()  # just in case, even on CPU
         if hasattr(MODEL, 'reset_cache'):
             MODEL.reset_cache()
 
-        # Crear la fila base del compuesto (predicciones vacías, se rellenarán abajo)
-        fila_base = [i, smiles, adduct] + [None] * len(variantes)
-        guardar_fila_excel(excel_path, fila_base)
-        # Cabecera = fila 1, así que el compuesto i va a fila i+1
-        fila_idx = i + 1
+        # Create the base row for the compound (empty predictions, filled in below)
+        base_row = [i, smiles, adduct] + [None] * len(variants)
+        save_row_excel(excel_path, base_row)
+        # Header = row 1, so compound i goes to row i+1
+        row_idx = i + 1
 
-        for j, (nombre, fn_prompt) in enumerate(prompts_func.items()):
+        for j, (name, fn_prompt) in enumerate(prompts_func.items()):
             prompt = fn_prompt(smiles, adduct)
-            print(f"Prompt {nombre}: ")
-            print(f" - Hora de ejecución: {datetime.now().strftime('%H:%M:%S')}")
+            print(f"Prompt {name}: ")
+            print(f" - Execution time: {datetime.now().strftime('%H:%M:%S')}")
 
-            ejemplos = seleccionar_ejemplos(DATOS_TRAIN, smiles, adduct, n=5)
-            resultado = predecir_ccs(MODEL, TOKENIZER, prompt, STATS, ejemplos)
+            examples = select_examples(TRAIN_DATA, smiles, adduct, n=5)
+            result = predict_ccs(MODEL, TOKENIZER, prompt, STATS, examples)
 
-            fallback_str = " [FALLBACK]" if resultado["fallback"] else ""
-            print(f" - CCS = {resultado['predicted_ccs']:.2f} Å²{fallback_str}")
-            print(f" - Reasoning: {resultado['reasoning'][:80]}")
+            fallback_str = " [FALLBACK]" if result["fallback"] else ""
+            print(f" - CCS = {result['predicted_ccs']:.2f} Å²{fallback_str}")
+            print(f" - Reasoning: {result['reasoning'][:80]}")
 
-            # Guardar resultado inmediatamente en el Excel
-            # Columnas: 1=id, 2=smiles, 3=aducto, 4..=variantes
+            # Save result immediately to Excel
+            # Columns: 1=id, 2=smiles, 3=adduct, 4..=variants
             col_idx = 4 + j
-            actualizar_celda_excel(excel_path, fila_idx, col_idx, resultado["predicted_ccs"])
+            update_cell_excel(excel_path, row_idx, col_idx, result["predicted_ccs"])
 
-    print(f"\n{'='*70}")
-    print(f"TEST FINALIZADO!\nFin de prueba: {datetime.now()}")
+    print(f"\n{'=' * 70}")
+    print(f"TEST COMPLETE!\nTest end: {datetime.now()}")
     print("=" * 70)
 
 
-# Para archivar resultados
+# For archiving results
 class Logger:
     def __init__(self, filepath):
         self.terminal = sys.stdout
@@ -829,13 +827,13 @@ if __name__ == '__main__':
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = f"../data/results/log_{timestamp}.txt"
     sys.stdout = Logger(log_path)
-    print(f"Log guardado en: {log_path}")
+    print(f"Log saved to: {log_path}")
 
     os.environ["TRANSFORMERS_VERBOSITY"] = "error"
-    if inicializar_app():
+    if initialize_app():
         test_prompts()
     else:
-        print("ERROR en la inicialización. Verifica la configuración.")
+        print("ERROR during initialization. Check the configuration.")
 
     sys.stdout.close()
     sys.stdout = sys.stdout.terminal

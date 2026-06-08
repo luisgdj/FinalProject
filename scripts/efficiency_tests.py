@@ -13,28 +13,28 @@ app = Flask(__name__)
 
 MODEL = None
 TOKENIZER = None
-DATOS_TRAIN = None
+TRAIN_DATA = None
 STATS = None
 
 
-def leer_csv(filepath):
-    datos = []
+def read_csv(filepath):
+    data = []
     with open(filepath, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
             try:
-                datos.append({
+                data.append({
                     'smiles': row['smiles'].strip(),
                     'adduct': row['Adduct'].strip(),
                     'ccs': float(row['CCS_AVG'])
                 })
             except (ValueError, KeyError):
                 continue
-    return datos
+    return data
 
 
-def analizar_datos(datos):
-    ccs_values = [d['ccs'] for d in datos]
+def analyze_data(data):
+    ccs_values = [d['ccs'] for d in data]
     stats = {
         'ccs_min': min(ccs_values),
         'ccs_max': max(ccs_values),
@@ -43,8 +43,8 @@ def analizar_datos(datos):
     return stats
 
 
-def normalizar_aducto(adduct):
-    # Elimina la carga final del aducto para unificar formatos.
+def normalize_adduct(adduct):
+    # Strips the trailing charge character to unify adduct formats.
     return adduct.rstrip('+-').strip()
 
 
@@ -54,9 +54,9 @@ ADDUCT_INFO = {
     '[M-H]':     {'charge': -1, 'mass_add': -1.007, 'effect': 'deprotonated, ~2-5 Å² smaller than [M+H]+'},
 }
 
-# Monta un prompt simple solo usando la información del compuesto a analizar
-def construir_prompt(smiles, adduct):
-    adduct_norm = normalizar_aducto(adduct)
+# Builds a simple prompt using only the target compound information.
+def build_prompt(smiles, adduct):
+    adduct_norm = normalize_adduct(adduct)
     info = ADDUCT_INFO.get(adduct_norm, {
         'charge': 1, 'mass_add': 0, 'effect': 'unknown adduct type'
     })
@@ -82,69 +82,69 @@ Step 1 (size): """
     return prompt
 
 
-# Extrae el CCS predicho de la respuesta del modelo
-def parsear_respuesta(respuesta_raw):
+# Extracts the predicted CCS from the model's raw response.
+def parse_response(raw_response):
 
-    # Limpieza inicial
-    # Quitamos markdown bold/italic que ensucia las regex
-    texto = respuesta_raw.replace('**', '').replace('*', '')
-    # Quitamos artefactos LaTeX comunes: $...$, $$...$$, \[ \], \( \)
-    texto = re.sub(r'\$+', '', texto)
-    texto = re.sub(r'\\[\[\]\(\)]', '', texto)
-    texto = texto.strip() # Normalizamos espacios
+    # Initial cleanup
+    # Remove markdown bold/italic that interferes with regex
+    text = raw_response.replace('**', '').replace('*', '')
+    # Remove common LaTeX artifacts: $...$, $$...$$, \[ \], \( \)
+    text = re.sub(r'\$+', '', text)
+    text = re.sub(r'\\[\[\]\(\)]', '', text)
+    text = text.strip()
 
-    # Comprobación del bloque <think>
-    if '<think>' in texto and '</think>' not in texto:
+    # Check the <think> block
+    if '<think>' in text and '</think>' not in text:
         return {'predicted_ccs': None, 'fallback': True, 'source': 'think_unclosed'}
-    if '</think>' not in texto:
+    if '</think>' not in text:
         return {'predicted_ccs': None, 'fallback': True, 'source': 'no_think_tag'}
 
-    # A partir de aquí trabajamos SOLO con la zona post-think
-    texto_post = texto.split('</think>')[-1].strip()
+    # From here on, work only with the post-think section
+    post_text = text.split('</think>')[-1].strip()
 
-    def aceptar(valor, source):
-        if 50 <= valor <= 500: # rango razonable para CCS
-            return {'predicted_ccs': round(valor, 2), 'fallback': False, 'source': source}
+    def accept(value, source):
+        if 50 <= value <= 500:  # reasonable CCS range
+            return {'predicted_ccs': round(value, 2), 'fallback': False, 'source': source}
         return None
 
     NUM = r'([0-9]+(?:\.[0-9]+)?)'
 
-    # ESTRATEGIA 1: "Final CCS: <número>" en variantes (con/sin \boxed{})
-    patrones_final = [
-        rf'Final\s+CCS\s*[:=]?\s*\\?boxed\{{?\s*{NUM}\s*\}}?', # "Final CCS: \boxed{200}" o "Final CCS: 200"
-        rf'Final\s+CCS\s*[:=]\s*{NUM}', # "Final CCS: 200" o "Final CCS = 200"
-        rf'Final\s+CCS\s+{NUM}' # "Final CCS 200" (sin separador)
+    # STRATEGY 1: "Final CCS: <number>" in variants (with/without \boxed{})
+    final_patterns = [
+        rf'Final\s+CCS\s*[:=]?\s*\\?boxed\{{?\s*{NUM}\s*\}}?',  # "Final CCS: \boxed{200}" or "Final CCS: 200"
+        rf'Final\s+CCS\s*[:=]\s*{NUM}',                          # "Final CCS: 200" or "Final CCS = 200"
+        rf'Final\s+CCS\s+{NUM}'                                   # "Final CCS 200" (no separator)
     ]
-    for patron in patrones_final:
-        match = re.search(patron, texto_post, re.IGNORECASE)
+    for pattern in final_patterns:
+        match = re.search(pattern, post_text, re.IGNORECASE)
         if match:
-            valor = float(match.group(1))
-            result = aceptar(valor, 'final_ccs_tag')
+            value = float(match.group(1))
+            result = accept(value, 'final_css_tag')
             if result:
                 return result
 
-    # ESTRATEGIA 2: \boxed{<número>} sin "Final CCS:" delante
-    match = re.search(rf'\\?boxed\{{?\s*{NUM}\s*\}}?', texto_post)
+    # STRATEGY 2: \boxed{<number>} without a preceding "Final CCS:"
+    match = re.search(rf'\\?boxed\{{?\s*{NUM}\s*\}}?', post_text)
     if match:
-        valor = float(match.group(1))
-        result = aceptar(valor, 'boxed_tag')
+        value = float(match.group(1))
+        result = accept(value, 'boxed_tag')
         if result:
             return result
 
-    # ESTRATEGIA 3: último número plausible en el rango CCS
-    matches = re.findall(r'\b([0-9]{2,3}(?:\.[0-9]+)?)\b', texto_post)
-    plausibles = [float(m) for m in matches if 50 <= float(m) <= 500]
-    if plausibles:
+    # STRATEGY 3: last plausible number in the CCS range
+    matches = re.findall(r'\b([0-9]{2,3}(?:\.[0-9]+)?)\b', post_text)
+    plausible = [float(m) for m in matches if 50 <= float(m) <= 500]
+    if plausible:
         return {
-            'predicted_ccs': round(plausibles[-1], 2),
+            'predicted_ccs': round(plausible[-1], 2),
             'fallback': False,
             'source': 'last_plausible',
         }
 
     return {'predicted_ccs': None, 'fallback': True, 'source': 'no_number_found'}
 
-# Clasifica si la predicción es válida o es un valor degenerado.
-def clasificar_prediccion(ccs_pred, stats):
+# Classifies whether the prediction is valid or a degenerate value.
+def classify_prediction(ccs_pred, stats):
 
     avg = round(stats['ccs_avg'])
     if abs(ccs_pred - avg) <= 0.5:
@@ -152,73 +152,72 @@ def clasificar_prediccion(ccs_pred, stats):
 
     return 'interpolated', True
 
-# SI VUELVO A EJECUTAR LAS PRUEBAS CAMBIAR:
-#  - top_p = 0.95 (recomendado oficial)
-#  - max_new_tokens = 20000 (tengo dos fallbacks con el modelo 1.5B)
-#  - Investigar sobre el valor de la temperatura y entender porque he puesto 0.3 en vez de un valor dentro del rando 0.5-0.7 recomendado
-def predecir_ccs(model, tokenizer, prompt, stats):
+# IF RE-RUNNING THE TESTS, CONSIDER CHANGING:
+#  - top_p = 0.95 (official recommendation)
+#  - max_new_tokens = 20000 (two fallbacks observed with the 1.5B model)
+#  - Investigate the temperature value and understand why 0.3 was used instead of the recommended range 0.5-0.7
+def predict_ccs(model, tokenizer, prompt, stats):
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=5000)
 
     with torch.inference_mode():
         outputs = model.generate(
             **inputs,
-            do_sample = False,           # 1.5B -> False ; 7B/14B -> True # True para el 7B
-            temperature = None,           # 1.5B -> None  ; 7B/14B -> 0.3 # Bajo para mantener precisión
-            top_p = None,                 # 1.5B -> None  ; 7B/14B -> 0.9
-            repetition_penalty = 1.15,   # 1.5B -> None  ; 7B/14B -> 1.15 # Penaliza repeticiones
-            max_new_tokens = 10000, # más margen para el bloque <reasoning>
+            do_sample = False,           # 1.5B -> False ; Bigger models (7B) -> True
+            temperature = None,          # 1.5B -> None  ; Bigger models (7B) -> 0.3
+            top_p = None,                # 1.5B -> None  ; Bigger models (7B) -> 0.9
+            repetition_penalty = 1.15,   # Penalizes repeated tokens to prevent looping during long reasoning traces.
+            max_new_tokens = 10000,      # Extra margin for the <think> block
             pad_token_id = tokenizer.eos_token_id
         )
 
-    n_tokens_prompt = inputs['input_ids'].shape[1]
-    n_tokens_total = outputs.shape[1]
-    n_tokens_generados = n_tokens_total - n_tokens_prompt
+    n_prompt_tokens = inputs['input_ids'].shape[1]
+    n_total_tokens = outputs.shape[1]
+    n_generated_tokens = n_total_tokens - n_prompt_tokens
 
-    print(f" - Tokens del prompt: {n_tokens_prompt}")
-    print(f" - Tokens del output total: {n_tokens_total}")
-    print(f" - Tokens generados: {n_tokens_generados}")
+    print(f" - Prompt tokens: {n_prompt_tokens}")
+    print(f" - Total output tokens: {n_total_tokens}")
+    print(f" - Generated tokens: {n_generated_tokens}")
 
-    respuesta_completa = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    prompt_texto = tokenizer.decode(inputs['input_ids'][0], skip_special_tokens=True)
-    respuesta = respuesta_completa[len(prompt_texto):].strip()
+    full_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    prompt_text = tokenizer.decode(inputs['input_ids'][0], skip_special_tokens=True)
+    response = full_response[len(prompt_text):].strip()
 
-    print(" RESPUESTA COMPLETA: " + json.dumps(respuesta_completa))
-    print(" RESPUESTA CRUDA: " + json.dumps(respuesta))
+    print(" FULL RESPONSE: " + json.dumps(full_response))
+    print(" RAW RESPONSE: " + json.dumps(response))
 
-    resultado = parsear_respuesta(respuesta)
+    result = parse_response(response)
 
-    # Fallback por fallo de parseo
-    if resultado['fallback']:
-        resultado['predicted_ccs'] = 0.0
-        resultado['pred_type'] = 'heuristic_fallback'
-        resultado['reasoning'] = "Heuristic fallback: parser found no valid number"
-        return resultado
+    # Fallback on parse failure
+    if result['fallback']:
+        result['predicted_ccs'] = 0.0
+        result['pred_type'] = 'heuristic_fallback'
+        result['reasoning'] = "Heuristic fallback: parser found no valid number"
+        return result
 
-    # Clasificar la predicción
-    tipo, es_valida = clasificar_prediccion(resultado['predicted_ccs'], stats)
-    resultado['predicted_ccs_raw'] = resultado['predicted_ccs']
-    resultado['pred_type'] = tipo
+    # Classify the prediction
+    pred_type, is_valid = classify_prediction(result['predicted_ccs'], stats)
+    result['predicted_ccs_raw'] = result['predicted_ccs']
+    result['pred_type'] = pred_type
 
-    if es_valida:
-        resultado['reasoning'] = f"Model interpolation ({resultado['predicted_ccs']})"
+    if is_valid:
+        result['reasoning'] = f"Model interpolation ({result['predicted_ccs']})"
     else:
-        resultado['pred_type'] = tipo  # 'exact_copy' o 'dataset_avg', sin →heuristic
+        result['pred_type'] = pred_type  # 'exact_copy' or 'dataset_avg', no heuristic fallback
 
-        if tipo == 'exact_copy':
-            resultado['reasoning'] = f"Model output accepted (reference copy: {resultado['predicted_ccs_raw']})"
+        if pred_type == 'exact_copy':
+            result['reasoning'] = f"Model output accepted (reference copy: {result['predicted_ccs_raw']})"
         else:
-            resultado['reasoning'] = f"Model output accepted (dataset avg: {resultado['predicted_ccs_raw']})"
-        # predicted_ccs queda tal cual, sin reemplazar
+            result['reasoning'] = f"Model output accepted (dataset avg: {result['predicted_ccs_raw']})"
 
-    return resultado
+    return result
 
 
-def cargar_modelo():
+def load_model():
 
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
-    model_path = r"D:\Modelos TFG\DeepSeek-R1-Distill-Qwen-1.5B"  # Ruta local
-    print(f" - Ruta: {model_path}")
+    model_path = r"D:\Modelos TFG\DeepSeek-R1-Distill-Qwen-1.5B"  # Local path
+    print(f" - Path: {model_path}")
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
@@ -232,55 +231,54 @@ def cargar_modelo():
         low_cpu_mem_usage = True
     )
 
-    model.eval()  # Modo inferencia: desactiva dropout y gradientes
+    model.eval()  # Inference mode: disables dropout and gradients
 
     if hasattr(torch, 'compile'):
-        print(" - Compilando modelo con torch.compile...")
+        print(" - Compiling model with torch.compile...")
         model = torch.compile(model, mode="reduce-overhead")
-        print(" - Compilación completada")
+        print(" - Compilation complete")
 
     return model, tokenizer
 
 
-def inicializar_app():
-    global MODEL, TOKENIZER, DATOS_TRAIN, STATS
+def initialize_app():
+    global MODEL, TOKENIZER, TRAIN_DATA, STATS
 
     print("=" * 70)
-    print("Inicializando aplicación de predicción CCS.")
+    print("Initializing CCS prediction application.")
     print("=" * 70)
 
-    # Cargar datos
+    # Load data
     csv_path = r"../data/processed/other/train.csv"
     if not os.path.exists(csv_path):
-        print(f"AVISO: Archivo {csv_path} no encontrado")
-        print("Por favor, asegúrate de que train.csv está en la ruta correcta")
+        print(f"WARNING: File {csv_path} not found")
+        print("Please make sure train.csv is at the correct path")
         return False
 
-    print(f"Cargando dataset: {csv_path}")
-    DATOS_TRAIN = leer_csv(csv_path)
-    print(f" - Dataset cargado: {len(DATOS_TRAIN)} compuestos")
+    print(f"Loading dataset: {csv_path}")
+    TRAIN_DATA = read_csv(csv_path)
+    print(f" - Dataset loaded: {len(TRAIN_DATA)} compounds")
 
-    # Analizar estadísticas
-    print("Analizando estadísticas del dataset...")
-    STATS = analizar_datos(DATOS_TRAIN)
+    # Compute statistics
+    print("Analyzing dataset statistics...")
+    STATS = analyze_data(TRAIN_DATA)
     print(f" - CCS range: {STATS['ccs_min']:.1f} - {STATS['ccs_max']:.1f} Å²")
 
-    # Cargar modelo
-    print("Cargando modelo DeepSeek...")
-    MODEL, TOKENIZER = cargar_modelo()
-    print(" - Modelo cargado y listo")
-    print(" - Aplicación lista para recibir peticiones")
+    # Load model
+    print("Loading DeepSeek model...")
+    MODEL, TOKENIZER = load_model()
+    print(" - Model loaded and ready")
+    print(" - Application ready to receive requests")
     print("=" * 70)
     return True
 
 
 def test():
 
-    global MODEL, TOKENIZER, DATOS_TRAIN, STATS
+    global MODEL, TOKENIZER, TRAIN_DATA, STATS
 
     # 10 test cases extracted from train.csv
     test_cases = [
-        # Original test cases
         {"smiles": "O=C([C@@H](NS(=O)(=O)c1ccc(cc1)Cl)Cc1c[nH]c2c1cccc2)NC1CCCC1", "adduct": "[M+H]+"},
         {"smiles": "COc1cccc(c1)[C@@H]1N(Cc2ccc(cc2)F)C(=O)c2c([C@@H]1C(=O)O)cccc2", "adduct": "[M+H]+"},
         {"smiles": "OC(=O)/C=C/c1ccc(cc1)OC(F)(F)F", "adduct": "[M-H]-"},
@@ -294,33 +292,33 @@ def test():
     ]
 
     print("=" * 70)
-    print("PRUEBA DE EFICIENCIA\nInicio de prueba: {datetime.now()}")
+    print(f"EFFICIENCY TEST\nTest start: {datetime.now()}")
 
-    for i, caso in enumerate(test_cases, 1):
-        smiles, adduct = caso["smiles"], caso["adduct"]
+    for i, case in enumerate(test_cases, 1):
+        smiles, adduct = case["smiles"], case["adduct"]
         print(f"{'='*70}")
-        print(f"COMPUESTO {i} | Aducto = {adduct}")
+        print(f"COMPOUND {i} | Adduct = {adduct}")
         print(f"SMILES: {smiles}")
         print(f"{'='*70}")
 
-        # Limpiar caché entre predicciones
-        torch.cuda.empty_cache()  # por si acaso aunque estés en CPU
+        # Clear cache between predictions
+        torch.cuda.empty_cache()  # just in case, even on CPU
         if hasattr(MODEL, 'reset_cache'):
             MODEL.reset_cache()
 
-        prompt = construir_prompt(smiles, adduct)
-        resultado = predecir_ccs(MODEL, TOKENIZER, prompt, STATS)
+        prompt = build_prompt(smiles, adduct)
+        result = predict_ccs(MODEL, TOKENIZER, prompt, STATS)
 
-        fallback_str = " [FALLBACK]" if resultado["fallback"] else ""
-        print(f" CCS = {resultado['predicted_ccs']:.2f} Å²{fallback_str}")
-        print(f" Reasoning: {resultado['reasoning']}")
+        fallback_str = " [FALLBACK]" if result["fallback"] else ""
+        print(f" CCS = {result['predicted_ccs']:.2f} Å²{fallback_str}")
+        print(f" Reasoning: {result['reasoning']}")
 
     print(f"\n{'='*70}")
-    print(f"TEST FINALIZADO!\nFin de prueba: {datetime.now()}")
+    print(f"TEST COMPLETE!\nTest end: {datetime.now()}")
     print("=" * 70)
 
 if __name__ == '__main__':
-    if inicializar_app():
+    if initialize_app():
         test()
     else:
-        print("ERROR en la inicialización. Verifica la configuración.")
+        print("ERROR during initialization. Check the configuration.")

@@ -3,88 +3,85 @@ import sys
 from huggingface_hub import snapshot_download, HfApi
 from huggingface_hub.utils import HfHubHTTPError
 
-# Cambiar esta ruta al luego donde se descargarán los modelos
-DIRECTORIO_BASE = r"D:\Modelos TFG"
+# Change this path to where the models will be downloaded
+BASE_DIRECTORY = r"D:\Modelos TFG"
 
-# Añadir nombres de modelos en HuggingFace para descargar
-MODELOS = [
+# Add HuggingFace model names to download
+MODELS = [
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-    "Qwen/Qwen2.5-7B-Instruct"
-    #"RedHatAI/DeepSeek-R1-Distill-Qwen-7B-quantized.w4a16"
-    #"RedHatAI/DeepSeek-R1-Distill-Qwen-14B-quantized.w4a16"
 ]
-# Token de HuggingFace (necesario solo para modelos privados o con licencia)
-HF_TOKEN = None # Se deja en None si el modelo es público
+# HuggingFace token (only required for private or gated models)
+HF_TOKEN = None  # Leave as None if the model is public
 
 
-# INSTALACIÓN DE DEPENDENCIAS
-def instalar_si_falta(paquete):
+# DEPENDENCY INSTALLATION
+def install_if_missing(package):
     import importlib
     try:
-        importlib.import_module(paquete.replace("-", "_"))
+        importlib.import_module(package.replace("-", "_"))
     except ImportError:
-        print(f"  Instalando {paquete}...")
-        os.system(f"{sys.executable} -m pip install {paquete} -q")
+        print(f"  Installing {package}...")
+        os.system(f"{sys.executable} -m pip install {package} -q")
 
-print("Verificando dependencias...")
+print("Checking dependencies...")
 for pkg in ["huggingface_hub", "tqdm"]:
-    instalar_si_falta(pkg)
+    install_if_missing(pkg)
 
 
-# FUNCIONES
-def obtener_nombre_carpeta(repo_id: str) -> str:
-    """Convierte 'org/nombre-modelo' → 'nombre-modelo'"""
+# FUNCTIONS
+def get_folder_name(repo_id: str) -> str:
+    """Converts 'org/model-name' → 'model-name'"""
     return repo_id.split("/")[-1]
 
-def tamanio_carpeta(ruta: str) -> str:
-    """Devuelve el tamaño total de una carpeta en formato legible."""
+def folder_size(path: str) -> str:
+    """Returns the total size of a folder in human-readable format."""
     total = 0
-    for dirpath, _, filenames in os.walk(ruta):
+    for dirpath, _, filenames in os.walk(path):
         for f in filenames:
             fp = os.path.join(dirpath, f)
             if os.path.exists(fp):
                 total += os.path.getsize(fp)
-    for unidad in ["B", "KB", "MB", "GB", "TB"]:
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
         if total < 1024:
-            return f"{total:.1f} {unidad}"
+            return f"{total:.1f} {unit}"
         total /= 1024
     return f"{total:.1f} PB"
 
 
-def descargar_modelo(repo_id: str, directorio_base: str, token=None):
-    nombre = obtener_nombre_carpeta(repo_id)
-    destino = os.path.join(directorio_base, nombre)
+def download_model(repo_id: str, base_directory: str, token=None):
+    name = get_folder_name(repo_id)
+    destination = os.path.join(base_directory, name)
 
     print(f"\n{'='*60}")
-    print(f"  Modelo : {repo_id}")
-    print(f"  Destino: {destino}")
+    print(f"  Model  : {repo_id}")
+    print(f"  Target : {destination}")
     print(f"{'='*60}")
 
-    os.makedirs(destino, exist_ok=True)
+    os.makedirs(destination, exist_ok=True)
 
-    # Comprobar si ya existe y tiene contenido
-    archivos_existentes = [
-        f for f in os.listdir(destino)
-        if os.path.isfile(os.path.join(destino, f))
+    # Check if folder already exists and has content
+    existing_files = [
+        f for f in os.listdir(destination)
+        if os.path.isfile(os.path.join(destination, f))
     ]
-    if archivos_existentes:
-        print(f"  La carpeta ya contiene {len(archivos_existentes)} archivo(s).")
-        respuesta = input("  ¿Descargar de nuevo / completar archivos que falten? [s/N]: ").strip().lower()
-        if respuesta != "s":
-            print("  Omitido.")
+    if existing_files:
+        print(f"  The folder already contains {len(existing_files)} file(s).")
+        answer = input("  Download again / complete missing files? [y/N]: ").strip().lower()
+        if answer != "y":
+            print("  Skipped.")
             return
 
     try:
-        print("  Iniciando descarga (puede tardar varios minutos)...")
+        print("  Starting download (this may take several minutes)...")
         snapshot_download(
             repo_id=repo_id,
-            local_dir=destino,
+            local_dir=destination,
             token=token,
-            local_dir_use_symlinks=False,   # Copia real, sin symlinks
-            resume_download=True,           # Reanuda si se interrumpe
-            ignore_patterns=[               # Excluye archivos innecesarios
+            local_dir_use_symlinks=False,   # Real copy, no symlinks
+            resume_download=True,           # Resume if interrupted
+            ignore_patterns=[               # Exclude unnecessary files
                 "*.msgpack",
                 "flax_model*",
                 "tf_model*",
@@ -92,63 +89,63 @@ def descargar_modelo(repo_id: str, directorio_base: str, token=None):
                 "onnx/*",
             ],
         )
-        print(f"\n   Descarga completada.")
-        print(f"  Tamaño en disco: {tamanio_carpeta(destino)}")
+        print(f"\n  Download complete.")
+        print(f"  Size on disk: {folder_size(destination)}")
 
     except HfHubHTTPError as e:
         if "401" in str(e) or "403" in str(e):
-            print(f"\nError de autenticación.")
-            print("   Este modelo requiere un token de HuggingFace.")
-            print("    1. Ve a https://huggingface.co/settings/tokens")
-            print("    2. Crea un token de lectura")
-            print("    3. Añádelo en HF_TOKEN al inicio de este script")
+            print(f"\nAuthentication error.")
+            print("  This model requires a HuggingFace token.")
+            print("   1. Go to https://huggingface.co/settings/tokens")
+            print("   2. Create a read token")
+            print("   3. Add it to HF_TOKEN at the top of this script")
         else:
-            print(f"\n   Error HTTP: {e}")
+            print(f"\n  HTTP error: {e}")
 
     except Exception as e:
-        print(f"\n   Error inesperado: {e}")
+        print(f"\n  Unexpected error: {e}")
 
 
-def verificar_modelo(ruta: str) -> dict:
-    """Comprueba que los archivos esenciales están presentes."""
-    archivos = os.listdir(ruta) if os.path.exists(ruta) else []
+def verify_model(path: str) -> dict:
+    """Checks that essential files are present."""
+    files = os.listdir(path) if os.path.exists(path) else []
     return {
-        "config.json":            "config.json" in archivos,
-        "tokenizer_config.json":  "tokenizer_config.json" in archivos,
-        "tokenizer.json":         "tokenizer.json" in archivos,
-        "tokenizer.model":        "tokenizer.model" in archivos,
-        "pesos (.safetensors)":   any(f.endswith(".safetensors") for f in archivos),
+        "config.json":            "config.json" in files,
+        "tokenizer_config.json":  "tokenizer_config.json" in files,
+        "tokenizer.json":         "tokenizer.json" in files,
+        "tokenizer.model":        "tokenizer.model" in files,
+        "weights (.safetensors)": any(f.endswith(".safetensors") for f in files),
     }
 
 
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("  Descargador de modelos HuggingFace")
+    print("  HuggingFace Model Downloader")
     print("="*60)
-    print(f"  Directorio base: {DIRECTORIO_BASE}")
-    print(f"  Modelos a descargar: {len(MODELOS)}")
+    print(f"  Base directory : {BASE_DIRECTORY}")
+    print(f"  Models to download: {len(MODELS)}")
 
-    os.makedirs(DIRECTORIO_BASE, exist_ok=True)
+    os.makedirs(BASE_DIRECTORY, exist_ok=True)
 
-    for repo_id in MODELOS:
-        descargar_modelo(repo_id, DIRECTORIO_BASE, token=HF_TOKEN)
+    for repo_id in MODELS:
+        download_model(repo_id, BASE_DIRECTORY, token=HF_TOKEN)
 
-    # ── Resumen final ──────────────────────────────────────────
+    # Final summary
     print("\n" + "="*60)
-    print("  RESUMEN DE MODELOS DESCARGADOS")
+    print("  DOWNLOADED MODELS SUMMARY")
     print("="*60)
 
-    for repo_id in MODELOS:
-        nombre = obtener_nombre_carpeta(repo_id)
-        ruta = os.path.join(DIRECTORIO_BASE, nombre)
-        checks = verificar_modelo(ruta)
+    for repo_id in MODELS:
+        name = get_folder_name(repo_id)
+        path = os.path.join(BASE_DIRECTORY, name)
+        checks = verify_model(path)
 
-        print(f"\n  {nombre}")
-        for archivo, ok in checks.items():
-            estado = "✓" if ok else "✗ FALTA"
-            print(f"    {estado}  {archivo}")
+        print(f"\n  {name}")
+        for file, ok in checks.items():
+            status = "✓" if ok else "✗ MISSING"
+            print(f"    {status}  {file}")
 
-        if os.path.exists(ruta):
-            print(f"    Tamaño total: {tamanio_carpeta(ruta)}")
+        if os.path.exists(path):
+            print(f"    Total size: {folder_size(path)}")
 
-    print("\n  Proceso finalizado.")
+    print("\n  Process complete.")

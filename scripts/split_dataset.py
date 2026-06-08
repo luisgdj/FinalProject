@@ -2,48 +2,48 @@ import pandas as pd
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 
-# Cargar dataset
+# Load dataset
 df = pd.read_csv("../data/raw/dataset.csv")
 
-print(f"Dataset original: {len(df)} filas")
+print(f"Original dataset: {len(df)} rows")
 
-# Eliminar filas con valores nulos en columnas clave
+# Drop rows with null values in key columns
 df = df.dropna(subset=['smiles', 'InChIKEY', 'CCS_AVG', 'Adduct'])
-print(f"Después de limpiar: {len(df)} filas")
+print(f"After cleaning: {len(df)} rows")
 
-# Eliminar dímeros
+# Remove dimers
 df = df[df['Dimer.1'] == 'Monomer']
-print(f"Después de eliminar dímeros: {len(df)} filas\n")
+print(f"After removing dimers: {len(df)} rows\n")
 
-# Obtener moléculas únicas (por InChIKEY)
+# Get unique molecules (by InChIKEY)
 unique_molecules = df['InChIKEY'].unique()
-print(f"Moléculas únicas: {len(unique_molecules)}")
+print(f"Unique molecules: {len(unique_molecules)}")
 
-# Dividir moléculas en train/test (80/20)
+# Split molecules into train/test (80/20)
 train_molecules, test_molecules = train_test_split(unique_molecules, test_size=0.2, random_state=42)
 
-print(f"Moléculas train: {len(train_molecules)}")
-print(f"Moléculas test: {len(test_molecules)}")
+print(f"Train molecules: {len(train_molecules)}")
+print(f"Test molecules: {len(test_molecules)}")
 
-# Crear datasets basados en las moléculas
+# Build datasets based on molecules
 train_df = df[df['InChIKEY'].isin(train_molecules)]
 test_df = df[df['InChIKEY'].isin(test_molecules)]
 
-print(f"\nFilas train: {len(train_df)}")
-print(f"Filas test: {len(test_df)}")
+print(f"\nTrain rows: {len(train_df)}")
+print(f"Test rows: {len(test_df)}")
 
-# Verificar que no hay moléculas compartidas
+# Verify no shared molecules
 shared = set(train_df['InChIKEY'].unique()) & set(test_df['InChIKEY'].unique())
 if shared:
-    print(f"ERROR: {len(shared)} moléculas compartidas!")
+    print(f"ERROR: {len(shared)} shared molecules!")
 else:
-    print("No hay moléculas compartidas entre train y test")
+    print("No shared molecules between train and test")
 
-# Guardar
+# Save
 Path("../data/processed").mkdir(parents=True, exist_ok=True)
 train_df.to_csv("../data/processed/train.csv", index=False)
 test_df.to_csv("../data/processed/test.csv", index=False)
 
-print(f"\nGuardado en:")
+print(f"\nSaved to:")
 print(f" - data/processed/train.csv")
 print(f" - data/processed/test.csv")
