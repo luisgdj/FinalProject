@@ -414,7 +414,7 @@ def initialize_app():
     print("=" * 70)
 
     # Load data
-    csv_path = r"data/processed/other/train.csv"
+    csv_path = r"data/processed/train.csv"
     if not os.path.exists(csv_path):
         print(f"WARNING: File {csv_path} not found")
         print("Please make sure train.csv is at the correct path")
