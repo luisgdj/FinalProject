@@ -279,12 +279,6 @@ Expert knowledge - structural factors that determine CCS:
    - The adduct alters charge state and ion geometry.
    - Use the adduct effect described in the molecule line below as a small final adjustment.
 
-To estimate CCS, follow these steps:
-  1. Read the SMILES and identify rings, chains, branches, and functional groups.
-  2. Decide if the structure is compact (mostly fused rings, rigid) or extended (chains, flexible).
-  3. Apply the adduct correction described in the molecule line below.
-  4. Output a single CCS value, typically in the range 100-300 Å² for small molecules.
-
 Below are {n} reference molecules with experimentally measured CCS values, selected for their structural similarity to the target. Use them to identify patterns and infer the CCS of the target molecule.
 
 Reference molecules:
